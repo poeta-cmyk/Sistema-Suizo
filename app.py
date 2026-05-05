@@ -38,17 +38,15 @@ if n_jugadores > 0:
     rondas = math.ceil(math.log2(n_jugadores))
     
     st.markdown("---")
-    # Indicadores visuales
+    # Indicadores visuales en recuadros
     col1, col2 = st.columns(2)
     with col1:
         st.metric("Total Jugadores", n_jugadores)
     with col2:
-        st.metric("Rondas Sugeridas", rondas)
-    
-    st.info(f"Para un torneo de {n_jugadores} jugadores, el sistema recomienda realizar {rondas} rondas para determinar un ganador único.")
+        st.metric("Número de Rondas", rondas)
 
 # Lista visual
 st.markdown("---")
-st.subheader(f"Lista de Asistentes")
+st.subheader("Lista de Asistentes")
 for i, jugador in enumerate(st.session_state.asistentes, 1):
     st.write(f"**{i}.** {jugador}")
