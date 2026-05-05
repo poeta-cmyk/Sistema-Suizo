@@ -2,107 +2,111 @@ import streamlit as st
 import math
 import random
 
-# Título
-st.title("Sistema Suizo - Registro y Sorteo")
+# Configuración de página ancha para que el diseño de espejo quepa bien
+st.set_page_config(layout="wide")
 
-# Inicializar memorias (session_state)
+st.title("Sistema Suizo - Geometría de Mesas")
+
+# --- MEMORIA DEL PROGRAMA ---
 if 'asistentes' not in st.session_state:
     st.session_state.asistentes = []
 if 'registro_abierto' not in st.session_state:
     st.session_state.registro_abierto = True
-if 'mesas_sorteadas' not in st.session_state:
-    st.session_state.mesas_sorteadas = None
+if 'lista_sorteada' not in st.session_state:
+    st.session_state.lista_sorteada = []
 
-# Funciones de lógica
+# --- FUNCIONES ---
 def registrar_y_limpiar():
     nombre = st.session_state.ingreso_nombre.strip().upper()
-    if nombre:
-        if nombre not in st.session_state.asistentes:
-            st.session_state.asistentes.append(nombre)
-            st.session_state.asistentes.sort()
-            st.session_state.ingreso_nombre = ""
-        else:
-            st.warning(f"'{nombre}' ya está registrado.")
+    if nombre and nombre not in st.session_state.asistentes:
+        st.session_state.asistentes.append(nombre)
+        st.session_state.asistentes.sort()
+        st.session_state.ingreso_nombre = ""
 
-def finalizar_y_sortear():
+def realizar_sorteo():
     if len(st.session_state.asistentes) >= 4:
         st.session_state.registro_abierto = False
-        # Sorteo aleatorio para la primera ronda
-        lista_sorteo = st.session_state.asistentes.copy()
-        random.shuffle(lista_sorteo)
-        
-        # Agrupar en mesas de 4
-        mesas = []
-        for i in range(0, len(lista_sorteo), 4):
-            grupo = lista_sorteo[i:i+4]
-            if len(grupo) == 4: # Solo mesas completas
-                mesas.append(grupo)
-        st.session_state.mesas_sorteadas = mesas
-    else:
-        st.error("Se necesitan al menos 4 jugadores para iniciar.")
-
-def abrir_registro():
-    st.session_state.registro_abierto = True
+        # Sorteo real: mezclamos toda la lista para que el receso sea azaroso
+        temp_lista = st.session_state.asistentes.copy()
+        random.shuffle(temp_lista)
+        st.session_state.lista_sorteada = temp_lista
 
 # --- INTERFAZ DE REGISTRO ---
 if st.session_state.registro_abierto:
-    st.text_input("Escriba el nombre o nick del jugador:", 
-                 key="ingreso_nombre", 
-                 on_change=registrar_y_limpiar)
-
+    st.text_input("Escriba el nombre o nick del jugador:", key="ingreso_nombre", on_change=registrar_y_limpiar)
     col_reg1, col_reg2 = st.columns(2)
     with col_reg1:
-        if st.button("Registrar Jugador"):
-            registrar_y_limpiar()
+        if st.button("Registrar Jugador"): registrar_y_limpiar()
     with col_reg2:
-        if st.button("Finalizar registro"):
-            finalizar_y_sortear()
+        if st.button("Finalizar registro y Sortear"):
+            realizar_sorteo()
             st.rerun()
 
-# --- CÁLCULOS E INDICADORES ---
+# --- CÁLCULOS ---
 n_jugadores = len(st.session_state.asistentes)
 if n_jugadores > 0:
     rondas = math.ceil(math.log2(n_jugadores))
     n_mesas = n_jugadores // 4
-    en_pausa = n_jugadores % 4 # El remanente
+    en_pausa_num = n_jugadores % 4
     
     st.markdown("---")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Jugadores", n_jugadores)
     c2.metric("Número de Rondas", rondas)
     c3.metric("Número de Mesas", n_mesas)
-    c4.metric("En Pausa", en_pausa)
+    c4.metric("En Pausa", en_pausa_num)
 
-# --- MOSTRAR RESULTADOS O LISTA ---
-if not st.session_state.registro_abierto and st.session_state.mesas_sorteadas:
-    st.markdown("### 🎲 DISTRIBUCIÓN DE MESAS - RONDA 1")
-    if st.button("⬅ Volver a agregar jugadores"):
-        abrir_registro()
+# --- VISTA DE MESAS (EL ESPEJO) ---
+if not st.session_state.registro_abierto and st.session_state.lista_sorteada:
+    if st.button("⬅ Volver al Registro (Sin perder el sorteo)"):
+        st.session_state.registro_abierto = True
         st.rerun()
+
+    st.markdown("### 🗠 DISTRIBUCIÓN DE MESAS - RONDA 1")
     
-    # Mostrar las mesas
-    for i, mesa in enumerate(st.session_state.mesas_sorteadas, 1):
-        with st.expander(f"MESA {i}", expanded=True):
-            for j, jugador in enumerate(mesa, 1):
-                st.write(f"{j}. {jugador}")
-    
-    # Mostrar quiénes quedaron en pausa
-    if en_pausa > 0:
+    # Separamos jugadores de mesas y jugadores en pausa
+    total_en_mesas = n_mesas * 4
+    jugadores_mesas = st.session_state.lista_sorteada[:total_en_mesas]
+    jugadores_pausa = st.session_state.lista_sorteada[total_en_mesas:]
+
+    # Encabezado de la tabla de espejo
+    st.markdown("---")
+    h1, h2, h3, h4, h5 = st.columns([4, 1, 1, 1, 4])
+    h1.write("**PAREJA A/C (Izquierda)**")
+    h2.write("**Puntos**")
+    h3.markdown("<center><b>MESA</b></center>", unsafe_allow_html=True)
+    h4.write("**Puntos**")
+    h5.write("**PAREJA B/D (Derecha)**")
+
+    # Generar cada fila (Mesa)
+    for i in range(n_mesas):
+        # Tomamos 4 jugadores para esta mesa
+        m = jugadores_mesas[i*4 : i*4+4]
+        
+        col_izq, pts_izq, num_mesa, pts_der, col_der = st.columns([4, 1, 1, 1, 4])
+        
+        with col_izq:
+            st.info(f"{m[0]} / {m[2]}") # Jugador A y C
+        with pts_izq:
+            st.number_input("", key=f"p_izq_{i}", min_value=0, max_value=100, step=1, label_visibility="collapsed")
+        with num_mesa:
+            st.markdown(f"<h3 style='text-align: center; margin: 0;'>{i+1}</h3>", unsafe_allow_html=True)
+        with pts_der:
+            st.number_input("", key=f"p_der_{i}", min_value=0, max_value=100, step=1, label_visibility="collapsed")
+        with col_der:
+            st.success(f"{m[1]} / {m[3]}") # Jugador B y D
+
+    if jugadores_pausa:
         st.markdown("---")
-        st.subheader("⏸️ Jugadores en Pausa")
-        # Los últimos de la lista sorteada son los que no entraron en mesa
-        remanentes = st.session_state.asistentes[-en_pausa:] 
-        for p in remanentes:
-            st.info(f"**{p}**")
+        st.warning(f"**EN PAUSA:** {', '.join(jugadores_pausa)}")
 
 else:
-    # Mostrar lista normal mientras se registra
+    # Mostrar lista alfabética solo durante el registro
     st.markdown("---")
-    st.subheader("Lista de Asistentes")
+    st.subheader("Lista de Asistentes (Orden Alfabético)")
     for i, jugador in enumerate(st.session_state.asistentes, 1):
         c_n, c_b = st.columns([0.8, 0.2])
         c_n.write(f"**{i}.** {jugador}")
         if c_b.button("Eliminar", key=f"del_{jugador}"):
             st.session_state.asistentes.remove(jugador)
             st.rerun()
-        
