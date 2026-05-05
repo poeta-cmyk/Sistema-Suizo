@@ -13,7 +13,7 @@ if 'registro_abierto' not in st.session_state:
 if 'ronda_actual' not in st.session_state:
     st.session_state.ronda_actual = 1
 if 'historial_puntos' not in st.session_state:
-    st.session_state.historial_puntos = {} # {jugador: puntos_acumulados}
+    st.session_state.historial_puntos = {} 
 if 'mesas_actuales' not in st.session_state:
     st.session_state.mesas_actuales = []
 if 'jugadores_pausa' not in st.session_state:
@@ -34,8 +34,7 @@ def generar_ronda():
     n = len(st.session_state.asistentes)
     if n < 4: return
 
-    # Ordenar jugadores por puntos acumulados (Sistema Suizo)
-    # En Ronda 1, como todos tienen 0, el shuffle inicial los mezcla al azar
+    # Ordenar por puntos (Sistema Suizo)
     jugadores_ordenados = sorted(st.session_state.asistentes, 
                                  key=lambda x: st.session_state.historial_puntos[x], 
                                  reverse=True)
@@ -49,24 +48,24 @@ def generar_ronda():
     st.session_state.mesas_actuales = [jugadores_ordenados[i:i+4] for i in range(0, total_mesas, 4)]
     st.session_state.jugadores_pausa = jugadores_ordenados[total_mesas:]
     
-    # Otorgar puntos automáticos a los que quedan "En Pausa"
+    # Victoria automática en Pausa
     meta = st.session_state.meta_puntos
     for p in st.session_state.jugadores_pausa:
-        st.session_state.historial_puntos[p] += meta # Gana la meta (ej. 100)
+        st.session_state.historial_puntos[p] += meta
 
 def procesar_ronda():
-    # Sumar puntos de las mesas
+    # 1. Sumar puntos
     for i in range(len(st.session_state.mesas_actuales)):
         m = st.session_state.mesas_actuales[i]
-        p_izq = st.session_state[f"p_izq_{i}"]
-        p_der = st.session_state[f"p_der_{i}"]
+        p_izq = st.session_state[f"p_izq_{i}_{st.session_state.ronda_actual}"]
+        p_der = st.session_state[f"p_der_{i}_{st.session_state.ronda_actual}"]
         
-        # Asignar puntos a cada jugador de la pareja
         st.session_state.historial_puntos[m[0]] += p_izq
         st.session_state.historial_puntos[m[2]] += p_izq
         st.session_state.historial_puntos[m[1]] += p_der
         st.session_state.historial_puntos[m[3]] += p_der
         
+    # 2. Avanzar ronda y generar nuevos cruces
     st.session_state.ronda_actual += 1
     generar_ronda()
 
@@ -81,7 +80,7 @@ if st.session_state.registro_abierto:
         generar_ronda()
         st.rerun()
 
-# --- PANEL DE CONTROL ---
+# --- PANEL DE INDICADORES ---
 n_jugadores = len(st.session_state.asistentes)
 if n_jugadores > 0:
     st.markdown("---")
@@ -91,7 +90,7 @@ if n_jugadores > 0:
     c3.metric("Meta", f"{st.session_state.meta_puntos} pts")
     c4.metric("En Pausa", len(st.session_state.jugadores_pausa))
 
-# --- DISTRIBUCIÓN DE MESAS ---
+# --- MESAS ---
 if not st.session_state.registro_abierto:
     st.header(f"🎲 DISTRIBUCIÓN DE MESAS - RONDA {st.session_state.ronda_actual}")
     
@@ -103,22 +102,24 @@ if not st.session_state.registro_abierto:
     h5.write("**PAREJA B/D**")
 
     for i, m in enumerate(st.session_state.mesas_actuales):
-        c_izq, p_izq, n_mesa, p_der, c_der = st.columns([4, 1, 1, 1, 4])
+        c_izq, p_izq_col, n_mesa, p_der_col, c_der = st.columns([4, 1, 1, 1, 4])
         with c_izq: st.info(f"{m[0]} / {m[2]}")
-        with p_izq: st.number_input("", key=f"p_izq_{i}", min_value=0, max_value=st.session_state.meta_puntos, step=1, label_visibility="collapsed")
+        with p_izq_col: 
+            # Agregamos la ronda a la llave (key) para que se resetee el valor
+            st.number_input("", key=f"p_izq_{i}_{st.session_state.ronda_actual}", min_value=0, max_value=st.session_state.meta_puntos, step=1, label_visibility="collapsed")
         with n_mesa: st.markdown(f"<h3 style='text-align: center; margin: 0;'>{i+1}</h3>", unsafe_allow_html=True)
-        with p_der: st.number_input("", key=f"p_der_{i}", min_value=0, max_value=st.session_state.meta_puntos, step=1, label_visibility="collapsed")
+        with p_der_col: 
+            st.number_input("", key=f"p_der_{i}_{st.session_state.ronda_actual}", min_value=0, max_value=st.session_state.meta_puntos, step=1, label_visibility="collapsed")
         with c_der: st.success(f"{m[1]} / {m[3]}")
 
     if st.session_state.jugadores_pausa:
         st.warning(f"**EN PAUSA (Ganan {st.session_state.meta_puntos} a {st.session_state.meta_puntos//2}):** {', '.join(st.session_state.jugadores_pausa)}")
 
     st.markdown("---")
-    if st.button(f"REGISTRAR RESULTADOS Y PASAR A RONDA {st.session_state.ronda_actual + 1}"):
+    if st.button(f"REGISTRAR RESULTADOS DE RONDA {st.session_state.ronda_actual}"):
         procesar_ronda()
         st.rerun()
 
-    # Tabla de posiciones rápida al final
     with st.expander("Ver Tabla de Posiciones Acumulada"):
         ranking = sorted(st.session_state.historial_puntos.items(), key=lambda x: x[1], reverse=True)
         for i, (jug, pts) in enumerate(ranking, 1):
