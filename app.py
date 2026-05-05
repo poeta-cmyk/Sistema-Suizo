@@ -14,11 +14,11 @@ if 'registro_abierto' not in st.session_state:
 if 'ronda_actual' not in st.session_state:
     st.session_state.ronda_actual = 1
 if 'juegos_ganados' not in st.session_state:
-    st.session_state.juegos_ganados = {j: 0 for j in st.session_state.asistentes}
+    st.session_state.juegos_ganados = {}
 if 'puntos_favor' not in st.session_state:
-    st.session_state.puntos_favor = {j: 0 for j in st.session_state.asistentes}
+    st.session_state.puntos_favor = {}
 if 'puntos_contra' not in st.session_state:
-    st.session_state.puntos_contra = {j: 0 for j in st.session_state.asistentes}
+    st.session_state.puntos_contra = {}
 if 'jugadores_reposo_previos' not in st.session_state:
     st.session_state.jugadores_reposo_previos = []
 if 'mesas_actuales' not in st.session_state:
@@ -46,7 +46,6 @@ def registrar_y_limpiar():
         st.session_state.puntos_contra[nombre] = 0
 
 def generar_ronda_suiza():
-    # Orden por mérito Franz Lameda
     jugadores = sorted(st.session_state.asistentes, 
                       key=lambda x: (st.session_state.juegos_ganados[x], 
                                      st.session_state.puntos_favor[x], 
@@ -56,13 +55,11 @@ def generar_ronda_suiza():
     if st.session_state.ronda_actual == 1:
         random.shuffle(jugadores)
     
-    # Lógica de Reposo: Intentar que no repitan
     n_reposo = len(jugadores) % 4
     reposados_hoy = []
     if n_reposo > 0:
-        # Buscamos a los que están más abajo en la tabla que NO hayan reposado antes
         candidatos_reposo = [j for j in reversed(jugadores) if j not in st.session_state.jugadores_reposo_previos]
-        if len(candidatos_reposo) < n_reposo: # Si todos ya reposaron, reiniciamos ciclo
+        if len(candidatos_reposo) < n_reposo:
             reposados_hoy = jugadores[-n_reposo:]
         else:
             reposados_hoy = candidatos_reposo[:n_reposo]
@@ -70,14 +67,12 @@ def generar_ronda_suiza():
         for r in reposados_hoy:
             jugadores.remove(r)
             st.session_state.jugadores_reposo_previos.append(r)
-            # Puntos por reposo
             st.session_state.juegos_ganados[r] += 1
             st.session_state.puntos_favor[r] += st.session_state.meta_puntos
             st.session_state.puntos_contra[r] += (st.session_state.meta_puntos // 2)
 
     st.session_state.jugadores_pausa = reposados_hoy
     
-    # Emparejamiento evitando parejas previas
     n_mesas = len(jugadores) // 4
     mesas_generadas = []
     disponibles = jugadores.copy()
@@ -107,7 +102,7 @@ def procesar_ronda():
             if pf > pc: st.session_state.juegos_ganados[p] += 1
 
     rondas_max = math.ceil(math.log2(len(st.session_state.asistentes)))
-    st.session_state.lanzar_globos = True # Activamos señal de globos
+    st.session_state.lanzar_globos = True 
     
     if st.session_state.ronda_actual >= rondas_max:
         st.session_state.torneo_finalizado = True
@@ -133,7 +128,6 @@ if st.session_state.registro_abierto:
 else:
     rondas_max = math.ceil(math.log2(len(st.session_state.asistentes)))
     
-    # PANEL SUPERIOR
     cols = st.columns(5)
     cols[0].metric("Ronda", f"{st.session_state.ronda_actual} de {rondas_max}")
     cols[1].metric("Inscritos", len(st.session_state.asistentes))
@@ -142,18 +136,21 @@ else:
     cols[4].metric("Meta", st.session_state.meta_puntos)
 
     if not st.session_state.torneo_finalizado:
-        # TEMPORIZADOR POR RONDA
+        # TEMPORIZADOR MEJORADO (NO BLOQUEANTE)
         with st.sidebar:
-            st.header("⏱️ Temporizador")
-            minutos = st.number_input("Minutos de la ronda:", min_value=1, value=20)
-            if st.button("Iniciar Reloj"):
-                placeholder = st.empty()
-                for t in range(minutos * 60, -1, -1):
-                    mins, secs = divmod(t, 60)
-                    placeholder.metric("Tiempo Restante", f"{mins:02d}:{secs:02d}")
+            st.header("⏱️ Control de Tiempo")
+            mins_input = st.number_input("Establecer minutos:", min_value=1, value=20)
+            
+            # Usamos un botón para disparar el conteo, pero advirtiendo que la carga lo detiene
+            if st.button("Iniciar Cuenta Regresiva"):
+                t_placeholder = st.empty()
+                for t in range(mins_input * 60, -1, -1):
+                    mm, ss = divmod(t, 60)
+                    t_placeholder.metric("Tiempo Restante", f"{mm:02d}:{ss:02d}")
                     time.sleep(1)
-                st.warning("¡TIEMPO AGOTADO!")
-        
+                st.warning("⚠️ ¡TIEMPO CUMPLIDO!")
+            st.info("Nota: Escribir resultados detendrá este reloj visual. Úsalo como referencia al inicio o final de la ronda.")
+
         st.markdown("---")
         for i, m in enumerate(st.session_state.mesas_actuales):
             c1, c2, c3, c4, c5 = st.columns([3,1,1,1,3])
@@ -164,13 +161,12 @@ else:
             c5.success(f"{m[1]} / {m[3]}")
         
         if st.session_state.jugadores_pausa:
-            st.markdown(f"### 💤 En Reposo: {', '.join(st.session_state.jugadores_pausa)}")
+            st.markdown(f"### 💤 En Reposo (ya puntuados): {', '.join(st.session_state.jugadores_pausa)}")
         
         if st.button("✅ REGISTRAR RESULTADOS"):
             procesar_ronda()
             st.rerun()
     else:
-        # RANKING FINAL
         st.header("🥇 RANKING DEFINITIVO")
         ranking = sorted(st.session_state.asistentes, 
                         key=lambda x: (st.session_state.juegos_ganados[x], 
