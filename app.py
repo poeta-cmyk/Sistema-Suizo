@@ -1,26 +1,24 @@
 import streamlit as st
 import math
 import random
+import time
 
 # Configuración de la página
-st.set_page_config(layout="wide", page_title="Sistema Suizo Pro")
+st.set_page_config(layout="wide", page_title="Sistema Suizo Pro - Franz Lameda")
 
-# --- MEMORIA DEL PROGRAMA (SESSION STATE) ---
+# --- MEMORIA DEL PROGRAMA ---
 if 'asistentes' not in st.session_state:
     st.session_state.asistentes = []
 if 'registro_abierto' not in st.session_state:
     st.session_state.registro_abierto = True
 if 'ronda_actual' not in st.session_state:
     st.session_state.ronda_actual = 1
-
-# Estadísticas para el orden de mérito de Franz Lameda
 if 'juegos_ganados' not in st.session_state:
     st.session_state.juegos_ganados = {} 
 if 'puntos_favor' not in st.session_state:
     st.session_state.puntos_favor = {} 
 if 'puntos_contra' not in st.session_state:
     st.session_state.puntos_contra = {} 
-
 if 'mesas_actuales' not in st.session_state:
     st.session_state.mesas_actuales = []
 if 'jugadores_pausa' not in st.session_state:
@@ -29,8 +27,10 @@ if 'meta_puntos' not in st.session_state:
     st.session_state.meta_puntos = 100
 if 'parejas_previas' not in st.session_state:
     st.session_state.parejas_previas = [] 
+if 'torneo_finalizado' not in st.session_state:
+    st.session_state.torneo_finalizado = False
 
-# --- FUNCIONES DE LÓGICA ---
+# --- FUNCIONES ---
 def registrar_y_limpiar():
     nombre = st.session_state.ingreso_nombre.strip().upper()
     if nombre and nombre not in st.session_state.asistentes:
@@ -42,14 +42,11 @@ def registrar_y_limpiar():
         st.session_state.puntos_contra[nombre] = 0
 
 def generar_ronda_suiza():
-    # ORDEN ESTRICTO DE MÉRITO (Franz Lameda):
-    # 1. Ganados (Desc) | 2. Favor (Desc) | 3. Contra (Asc)
+    # ORDEN DE MÉRITO FRANZ LAMEDA
     jugadores = sorted(st.session_state.asistentes, 
-                      key=lambda x: (
-                          st.session_state.juegos_ganados[x], 
-                          st.session_state.puntos_favor[x], 
-                          -st.session_state.puntos_contra[x]
-                      ), 
+                      key=lambda x: (st.session_state.juegos_ganados[x], 
+                                     st.session_state.puntos_favor[x], 
+                                     -st.session_state.puntos_contra[x]), 
                       reverse=True)
     
     if st.session_state.ronda_actual == 1:
@@ -60,138 +57,87 @@ def generar_ronda_suiza():
     disponibles = jugadores.copy()
     
     for _ in range(n_mesas):
-        # El primero de la tabla (A) busca socio (C)
         a = disponibles.pop(0)
-        c_idx = -1
-        for i, cand in enumerate(disponibles):
-            if {a, cand} not in st.session_state.parejas_previas:
-                c_idx = i
-                break
+        c_idx = next((i for i, cand in enumerate(disponibles) if {a, cand} not in st.session_state.parejas_previas), 0)
+        c = disponibles.pop(c_idx)
+        st.session_state.parejas_previas.append({a, c})
         
-        if c_idx != -1:
-            c = disponibles.pop(c_idx)
-            st.session_state.parejas_previas.append({a, c})
-        else:
-            c = disponibles.pop(0)
-            
-        # El siguiente líder disponible (B) busca socio (D)
         b = disponibles.pop(0)
-        d_idx = -1
-        for i, cand in enumerate(disponibles):
-            if {b, cand} not in st.session_state.parejas_previas:
-                d_idx = i
-                break
+        d_idx = next((i for i, cand in enumerate(disponibles) if {b, cand} not in st.session_state.parejas_previas), 0)
+        d = disponibles.pop(d_idx)
+        st.session_state.parejas_previas.append({b, d})
         
-        if d_idx != -1:
-            d = disponibles.pop(d_idx)
-            st.session_state.parejas_previas.append({b, d})
-        else:
-            d = disponibles.pop(0)
-        
-        # Estructura: Pareja Izq (A/C) vs Pareja Der (B/D)
         mesas_generadas.append([a, b, c, d])
-        
+    
     st.session_state.mesas_actuales = mesas_generadas
     st.session_state.jugadores_pausa = disponibles
     
-    # El receso gana automáticamente
-    meta = st.session_state.meta_puntos
     for p in st.session_state.jugadores_pausa:
         st.session_state.juegos_ganados[p] += 1
-        st.session_state.puntos_favor[p] += meta
-        st.session_state.puntos_contra[p] += (meta // 2)
+        st.session_state.puntos_favor[p] += st.session_state.meta_puntos
+        st.session_state.puntos_contra[p] += (st.session_state.meta_puntos // 2)
 
 def procesar_ronda():
-    # Sumar puntos usando los nombres correctos de las variables
-    for i in range(len(st.session_state.mesas_actuales)):
-        m = st.session_state.mesas_actuales[i]
-        key_izq = f"p_izq_{i}_{st.session_state.ronda_actual}"
-        key_der = f"p_der_{i}_{st.session_state.ronda_actual}"
+    for i, m in enumerate(st.session_state.mesas_actuales):
+        p_izq = st.session_state.get(f"p_izq_{i}_{st.session_state.ronda_actual}", 0)
+        p_der = st.session_state.get(f"p_der_{i}_{st.session_state.ronda_actual}", 0)
         
-        p_izq = st.session_state.get(key_izq, 0)
-        p_der = st.session_state.get(key_der, 0)
-        
-        # Pareja A/C (Izquierda)
-        for p in [m[0], m[2]]:
-            st.session_state.puntos_favor[p] += p_izq
-            st.session_state.puntos_contra[p] += p_der
-            if p_izq > p_der:
-                st.session_state.juegos_ganados[p] += 1
-                
-        # Pareja B/D (Derecha)
-        for p in [m[1], m[3]]:
-            st.session_state.puntos_favor[p] += p_der
-            st.session_state.puntos_contra[p] += p_izq
-            if p_der > p_izq:
-                st.session_state.juegos_ganados[p] += 1
-        
-    st.session_state.ronda_actual += 1
-    generar_ronda_suiza()
+        for p, pf, pc in [(m[0], p_izq, p_der), (m[2], p_izq, p_der), (m[1], p_der, p_izq), (m[3], p_der, p_izq)]:
+            st.session_state.puntos_favor[p] += pf
+            st.session_state.puntos_contra[p] += pc
+            if pf > pc: st.session_state.juegos_ganados[p] += 1
 
-# --- INTERFAZ VISUAL ---
-st.title("Sistema Suizo Pro - El Poeta Franz Lameda")
+    # Cálculo de rondas máximas
+    rondas_max = math.ceil(math.log2(len(st.session_state.asistentes)))
+    
+    if st.session_state.ronda_actual >= rondas_max:
+        st.session_state.torneo_finalizado = True
+        st.balloons() # ¡GLOBOS!
+    else:
+        st.session_state.ronda_actual += 1
+        st.balloons() # ¡GLOBOS!
+        generar_ronda_suiza()
+
+# --- INTERFAZ ---
+st.title("🏆 Sistema Suizo - El Poeta Franz Lameda")
 
 if st.session_state.registro_abierto:
-    st.subheader("Configuración e Inscripción")
-    st.session_state.meta_puntos = st.radio("Meta de puntos:", [100, 200], horizontal=True)
-    st.text_input("Nombre del jugador:", key="ingreso_nombre", on_change=registrar_y_limpiar)
-    
-    if st.button("Finalizar Registro e Iniciar"):
+    st.session_state.meta_puntos = st.radio("Meta:", [100, 200], horizontal=True)
+    st.text_input("Nombre Jugador:", key="ingreso_nombre", on_change=registrar_y_limpiar)
+    if st.button("🚀 INICIAR TORNEO"):
         if len(st.session_state.asistentes) >= 4:
             st.session_state.registro_abierto = False
             generar_ronda_suiza()
             st.rerun()
-        else:
-            st.error("Mínimo 4 jugadores.")
-
-    for i, jug in enumerate(st.session_state.asistentes, 1):
-        c_n, c_d = st.columns([0.9, 0.1])
-        c_n.write(f"{i}. {jug}")
-        if c_d.button("X", key=f"del_{jug}"):
-            st.session_state.asistentes.remove(jug)
-            st.rerun()
-
 else:
-    # PANEL DE CONTROL
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Jugadores", len(st.session_state.asistentes))
-    c2.metric("Ronda Actual", st.session_state.ronda_actual)
-    c3.metric("Meta", f"{st.session_state.meta_puntos} pts")
-    c4.metric("En Pausa", len(st.session_state.jugadores_pausa))
+    rondas_max = math.ceil(math.log2(len(st.session_state.asistentes)))
+    
+    # PANEL DE CONTROL MEJORADO
+    cols = st.columns(4)
+    cols[0].metric("Ronda", f"{st.session_state.ronda_actual} de {rondas_max}")
+    cols[1].metric("Inscritos", len(st.session_state.asistentes))
+    cols[2].metric("Estado", "FINALIZADO" if st.session_state.torneo_finalizado else "EN CURSO")
+    cols[3].metric("Meta", st.session_state.meta_puntos)
 
-    st.markdown("---")
-    st.header(f"🎲 DISTRIBUCIÓN DE MESAS - RONDA {st.session_state.ronda_actual}")
-
-    # Encabezados de Espejo
-    h1, h2, h3, h4, h5 = st.columns([4, 1, 1, 1, 4])
-    h1.write("**PAREJA A/C (Izquierda)**")
-    h2.write("**Pts**")
-    h3.markdown("<center><b>MESA</b></center>", unsafe_allow_html=True)
-    h4.write("**Pts**")
-    h5.write("**PAREJA B/D (Derecha)**")
-
-    for i, m in enumerate(st.session_state.mesas_actuales):
-        col_izq, pts_izq, num_mesa, pts_der, col_der = st.columns([4, 1, 1, 1, 4])
-        with col_izq: st.info(f"{m[0]} / {m[2]}")
-        with pts_izq: 
-            st.number_input("", key=f"p_izq_{i}_{st.session_state.ronda_actual}", min_value=0, max_value=st.session_state.meta_puntos, step=1, label_visibility="collapsed")
-        with num_mesa: 
-            st.markdown(f"<h3 style='text-align: center; margin: 0;'>{i+1}</h3>", unsafe_allow_html=True)
-        with pts_der: 
-            st.number_input("", key=f"p_der_{i}_{st.session_state.ronda_actual}", min_value=0, max_value=st.session_state.meta_puntos, step=1, label_visibility="collapsed")
-        with col_der: st.success(f"{m[1]} / {m[3]}")
-
-    if st.session_state.jugadores_pausa:
-        st.warning(f"**EN PAUSA (Ganan {st.session_state.meta_puntos} a {st.session_state.meta_puntos//2}):** {', '.join(st.session_state.jugadores_pausa)}")
-
-    st.markdown("---")
-    if st.button(f"REGISTRAR RESULTADOS DE RONDA {st.session_state.ronda_actual}"):
-        procesar_ronda()
-        st.rerun()
-
-    with st.expander("Tabla de Posiciones Pro (Mérito Franz Lameda)"):
+    if not st.session_state.torneo_finalizado:
+        st.markdown("---")
+        for i, m in enumerate(st.session_state.mesas_actuales):
+            c1, c2, c3, c4, c5 = st.columns([3,1,1,1,3])
+            c1.info(f"{m[0]} / {m[2]}")
+            c2.number_input("Pts", key=f"p_izq_{i}_{st.session_state.ronda_actual}", label_visibility="collapsed")
+            c3.markdown(f"<center><h3>{i+1}</h3></center>", unsafe_allow_html=True)
+            c4.number_input("Pts", key=f"p_der_{i}_{st.session_state.ronda_actual}", label_visibility="collapsed")
+            c5.success(f"{m[1]} / {m[3]}")
+        
+        if st.button("✅ REGISTRAR Y SIGUIENTE"):
+            procesar_ronda()
+            st.rerun()
+    else:
+        st.header("🥇 RANKING DEFINITIVO")
         ranking = sorted(st.session_state.asistentes, 
-                        key=lambda x: (st.session_state.juegos_ganados[x], st.session_state.puntos_favor[x], -st.session_state.puntos_contra[x]), 
-                        reverse=True)
+                        key=lambda x: (st.session_state.juegos_ganados[x], 
+                                       st.session_state.puntos_favor[x], 
+                                       -st.session_state.puntos_contra[x]), reverse=True)
         for i, j in enumerate(ranking, 1):
-            st.write(f"{i}. **{j}** | Ganados: {st.session_state.juegos_ganados[j]} | Favor: {st.session_state.puntos_favor[j]} | Contra: {st.session_state.puntos_contra[j]}")
+            color = "gold" if i==1 else "silver" if i==2 else "#cd7f32" if i==3 else "white"
+            st.markdown(f"<div style='padding:10px; border-radius:10px; background-color:{color if i<=3 else 'transparent'}; color:black if i<=3 else white'><b>{i}° {j}</b> - Ganados: {st.session_state.juegos_ganados[j]} | Pts+: {st.session_state.puntos_favor[j]}</div>", unsafe_allow_html=True)
