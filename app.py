@@ -2,6 +2,7 @@ import streamlit as st
 import math
 import random
 import time
+from datetime import datetime, timedelta
 
 # Configuración de la página
 st.set_page_config(layout="wide", page_title="Sistema Suizo Pro - Franz Lameda")
@@ -33,6 +34,9 @@ if 'torneo_finalizado' not in st.session_state:
     st.session_state.torneo_finalizado = False
 if 'lanzar_globos' not in st.session_state:
     st.session_state.lanzar_globos = False
+# Memoria para el reloj
+if 'fin_tiempo' not in st.session_state:
+    st.session_state.fin_tiempo = None
 
 # --- FUNCIONES ---
 def registrar_y_limpiar():
@@ -46,6 +50,7 @@ def registrar_y_limpiar():
         st.session_state.puntos_contra[nombre] = 0
 
 def generar_ronda_suiza():
+    # Orden de mérito Franz Lameda
     jugadores = sorted(st.session_state.asistentes, 
                       key=lambda x: (st.session_state.juegos_ganados[x], 
                                      st.session_state.puntos_favor[x], 
@@ -55,15 +60,16 @@ def generar_ronda_suiza():
     if st.session_state.ronda_actual == 1:
         random.shuffle(jugadores)
     
+    # Lógica de Reposo Sin Repetición
     n_reposo = len(jugadores) % 4
     reposados_hoy = []
     if n_reposo > 0:
-        candidatos_reposo = [j for j in reversed(jugadores) if j not in st.session_state.jugadores_reposo_previos]
-        if len(candidatos_reposo) < n_reposo:
-            reposados_hoy = jugadores[-n_reposo:]
-        else:
-            reposados_hoy = candidatos_reposo[:n_reposo]
+        candidatos = [j for j in reversed(jugadores) if j not in st.session_state.jugadores_reposo_previos]
+        if len(candidatos) < n_reposo:
+            st.session_state.jugadores_reposo_previos = [] # Reiniciar ciclo si todos ya reposaron
+            candidatos = reversed(jugadores)
         
+        reposados_hoy = list(candidatos)[:n_reposo]
         for r in reposados_hoy:
             jugadores.remove(r)
             st.session_state.jugadores_reposo_previos.append(r)
@@ -73,6 +79,7 @@ def generar_ronda_suiza():
 
     st.session_state.jugadores_pausa = reposados_hoy
     
+    # Parejas Sin Repetir
     n_mesas = len(jugadores) // 4
     mesas_generadas = []
     disponibles = jugadores.copy()
@@ -103,6 +110,7 @@ def procesar_ronda():
 
     rondas_max = math.ceil(math.log2(len(st.session_state.asistentes)))
     st.session_state.lanzar_globos = True 
+    st.session_state.fin_tiempo = None # Resetear reloj para la siguiente ronda
     
     if st.session_state.ronda_actual >= rondas_max:
         st.session_state.torneo_finalizado = True
@@ -114,7 +122,7 @@ def procesar_ronda():
 st.title("🏆 Sistema Suizo - El Poeta Franz Lameda")
 
 if st.session_state.lanzar_globos:
-    st.balloons()
+    st.balloons() #
     st.session_state.lanzar_globos = False
 
 if st.session_state.registro_abierto:
@@ -136,32 +144,36 @@ else:
     cols[4].metric("Meta", st.session_state.meta_puntos)
 
     if not st.session_state.torneo_finalizado:
-        # TEMPORIZADOR MEJORADO (NO BLOQUEANTE)
+        # RELOJ BLINDADO (BASADO EN TIEMPO REAL)
         with st.sidebar:
-            st.header("⏱️ Control de Tiempo")
-            mins_input = st.number_input("Establecer minutos:", min_value=1, value=20)
+            st.header("⏱️ Tiempo de Ronda")
+            duracion = st.number_input("Minutos:", min_value=1, value=20)
+            if st.button("🔔 INICIAR RELOJ"):
+                st.session_state.fin_tiempo = datetime.now() + timedelta(minutes=duracion)
             
-            # Usamos un botón para disparar el conteo, pero advirtiendo que la carga lo detiene
-            if st.button("Iniciar Cuenta Regresiva"):
-                t_placeholder = st.empty()
-                for t in range(mins_input * 60, -1, -1):
-                    mm, ss = divmod(t, 60)
-                    t_placeholder.metric("Tiempo Restante", f"{mm:02d}:{ss:02d}")
-                    time.sleep(1)
-                st.warning("⚠️ ¡TIEMPO CUMPLIDO!")
-            st.info("Nota: Escribir resultados detendrá este reloj visual. Úsalo como referencia al inicio o final de la ronda.")
+            if st.session_state.fin_tiempo:
+                restante = st.session_state.fin_tiempo - datetime.now()
+                if restante.total_seconds() > 0:
+                    mins, secs = divmod(int(restante.total_seconds()), 60)
+                    st.metric("⏳ Restante", f"{mins:02d}:{secs:02d}")
+                    # Auto-refrescar solo si el tiempo corre (opcional, pero ayuda)
+                    time.sleep(0.1) 
+                    st.rerun()
+                else:
+                    st.error("🚨 ¡TIEMPO AGOTADO!")
 
         st.markdown("---")
         for i, m in enumerate(st.session_state.mesas_actuales):
             c1, c2, c3, c4, c5 = st.columns([3,1,1,1,3])
             c1.info(f"{m[0]} / {m[2]}")
+            # Al cambiar estos números, la página recarga pero el reloj NO se pierde
             c2.number_input("Pts", key=f"p_izq_{i}_{st.session_state.ronda_actual}", label_visibility="collapsed", min_value=0)
             c3.markdown(f"<center><h3>{i+1}</h3></center>", unsafe_allow_html=True)
             c4.number_input("Pts", key=f"p_der_{i}_{st.session_state.ronda_actual}", label_visibility="collapsed", min_value=0)
             c5.success(f"{m[1]} / {m[3]}")
         
         if st.session_state.jugadores_pausa:
-            st.markdown(f"### 💤 En Reposo (ya puntuados): {', '.join(st.session_state.jugadores_pausa)}")
+            st.markdown(f"### 💤 En Reposo: {', '.join(st.session_state.jugadores_pausa)}")
         
         if st.button("✅ REGISTRAR RESULTADOS"):
             procesar_ronda()
