@@ -27,14 +27,16 @@ def registrar_y_limpiar():
 def finalizar_y_sortear():
     if len(st.session_state.asistentes) >= 4:
         st.session_state.registro_abierto = False
-        # Sorteo aleatorio
+        # Sorteo aleatorio para la primera ronda
         lista_sorteo = st.session_state.asistentes.copy()
         random.shuffle(lista_sorteo)
         
         # Agrupar en mesas de 4
         mesas = []
         for i in range(0, len(lista_sorteo), 4):
-            mesas.append(lista_sorteo[i:i+4])
+            grupo = lista_sorteo[i:i+4]
+            if len(grupo) == 4: # Solo mesas completas
+                mesas.append(grupo)
         st.session_state.mesas_sorteadas = mesas
     else:
         st.error("Se necesitan al menos 4 jugadores para iniciar.")
@@ -62,14 +64,14 @@ n_jugadores = len(st.session_state.asistentes)
 if n_jugadores > 0:
     rondas = math.ceil(math.log2(n_jugadores))
     n_mesas = n_jugadores // 4
-    receso = n_jugadores % 4
+    en_pausa = n_jugadores % 4 # El remanente
     
     st.markdown("---")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Jugadores", n_jugadores)
     c2.metric("Número de Rondas", rondas)
     c3.metric("Número de Mesas", n_mesas)
-    c4.metric("En Receso", receso)
+    c4.metric("En Pausa", en_pausa)
 
 # --- MOSTRAR RESULTADOS O LISTA ---
 if not st.session_state.registro_abierto and st.session_state.mesas_sorteadas:
@@ -78,13 +80,20 @@ if not st.session_state.registro_abierto and st.session_state.mesas_sorteadas:
         abrir_registro()
         st.rerun()
     
+    # Mostrar las mesas
     for i, mesa in enumerate(st.session_state.mesas_sorteadas, 1):
         with st.expander(f"MESA {i}", expanded=True):
             for j, jugador in enumerate(mesa, 1):
                 st.write(f"{j}. {jugador}")
     
-    if n_jugadores % 4 != 0:
-        st.warning(f"Nota: Los últimos {n_jugadores % 4} jugadores están en receso esta ronda.")
+    # Mostrar quiénes quedaron en pausa
+    if en_pausa > 0:
+        st.markdown("---")
+        st.subheader("⏸️ Jugadores en Pausa")
+        # Los últimos de la lista sorteada son los que no entraron en mesa
+        remanentes = st.session_state.asistentes[-en_pausa:] 
+        for p in remanentes:
+            st.info(f"**{p}**")
 
 else:
     # Mostrar lista normal mientras se registra
@@ -96,3 +105,4 @@ else:
         if c_b.button("Eliminar", key=f"del_{jugador}"):
             st.session_state.asistentes.remove(jugador)
             st.rerun()
+        
