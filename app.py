@@ -186,3 +186,4 @@ else:
                                        -st.session_state.puntos_contra[x]), reverse=True)
         for i, j in enumerate(ranking, 1):
             st.write(f"{i}° **{j}** | Ganados: {st.session_state.juegos_ganados[j]} | Pts+: {st.session_state.puntos_favor[j]} | Pts-: {st.session_state.puntos_contra[j]}")
+        
