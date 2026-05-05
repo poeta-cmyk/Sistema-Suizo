@@ -1,6 +1,7 @@
 import streamlit as st
 import math
 import random
+import time
 
 # Configuración de la página
 st.set_page_config(layout="wide", page_title="Sistema Suizo Pro - Franz Lameda")
@@ -13,11 +14,13 @@ if 'registro_abierto' not in st.session_state:
 if 'ronda_actual' not in st.session_state:
     st.session_state.ronda_actual = 1
 if 'juegos_ganados' not in st.session_state:
-    st.session_state.juegos_ganados = {} 
+    st.session_state.juegos_ganados = {j: 0 for j in st.session_state.asistentes}
 if 'puntos_favor' not in st.session_state:
-    st.session_state.puntos_favor = {} 
+    st.session_state.puntos_favor = {j: 0 for j in st.session_state.asistentes}
 if 'puntos_contra' not in st.session_state:
-    st.session_state.puntos_contra = {} 
+    st.session_state.puntos_contra = {j: 0 for j in st.session_state.asistentes}
+if 'jugadores_reposo_previos' not in st.session_state:
+    st.session_state.jugadores_reposo_previos = []
 if 'mesas_actuales' not in st.session_state:
     st.session_state.mesas_actuales = []
 if 'jugadores_pausa' not in st.session_state:
@@ -28,6 +31,8 @@ if 'parejas_previas' not in st.session_state:
     st.session_state.parejas_previas = [] 
 if 'torneo_finalizado' not in st.session_state:
     st.session_state.torneo_finalizado = False
+if 'lanzar_globos' not in st.session_state:
+    st.session_state.lanzar_globos = False
 
 # --- FUNCIONES ---
 def registrar_y_limpiar():
@@ -41,7 +46,7 @@ def registrar_y_limpiar():
         st.session_state.puntos_contra[nombre] = 0
 
 def generar_ronda_suiza():
-    # ORDEN DE MÉRITO FRANZ LAMEDA
+    # Orden por mérito Franz Lameda
     jugadores = sorted(st.session_state.asistentes, 
                       key=lambda x: (st.session_state.juegos_ganados[x], 
                                      st.session_state.puntos_favor[x], 
@@ -51,6 +56,28 @@ def generar_ronda_suiza():
     if st.session_state.ronda_actual == 1:
         random.shuffle(jugadores)
     
+    # Lógica de Reposo: Intentar que no repitan
+    n_reposo = len(jugadores) % 4
+    reposados_hoy = []
+    if n_reposo > 0:
+        # Buscamos a los que están más abajo en la tabla que NO hayan reposado antes
+        candidatos_reposo = [j for j in reversed(jugadores) if j not in st.session_state.jugadores_reposo_previos]
+        if len(candidatos_reposo) < n_reposo: # Si todos ya reposaron, reiniciamos ciclo
+            reposados_hoy = jugadores[-n_reposo:]
+        else:
+            reposados_hoy = candidatos_reposo[:n_reposo]
+        
+        for r in reposados_hoy:
+            jugadores.remove(r)
+            st.session_state.jugadores_reposo_previos.append(r)
+            # Puntos por reposo
+            st.session_state.juegos_ganados[r] += 1
+            st.session_state.puntos_favor[r] += st.session_state.meta_puntos
+            st.session_state.puntos_contra[r] += (st.session_state.meta_puntos // 2)
+
+    st.session_state.jugadores_pausa = reposados_hoy
+    
+    # Emparejamiento evitando parejas previas
     n_mesas = len(jugadores) // 4
     mesas_generadas = []
     disponibles = jugadores.copy()
@@ -65,18 +92,9 @@ def generar_ronda_suiza():
         d_idx = next((i for i, cand in enumerate(disponibles) if {b, cand} not in st.session_state.parejas_previas), 0)
         d = disponibles.pop(d_idx)
         st.session_state.parejas_previas.append({b, d})
-        
         mesas_generadas.append([a, b, c, d])
     
     st.session_state.mesas_actuales = mesas_generadas
-    st.session_state.jugadores_pausa = disponibles
-    
-    # ASIGNACIÓN DE PUNTOS POR REPOSO (META COMPLETA Y MEDIA CONTRA)
-    meta = st.session_state.meta_puntos
-    for p in st.session_state.jugadores_pausa:
-        st.session_state.juegos_ganados[p] += 1
-        st.session_state.puntos_favor[p] += meta
-        st.session_state.puntos_contra[p] += (meta // 2)
 
 def procesar_ronda():
     for i, m in enumerate(st.session_state.mesas_actuales):
@@ -89,17 +107,20 @@ def procesar_ronda():
             if pf > pc: st.session_state.juegos_ganados[p] += 1
 
     rondas_max = math.ceil(math.log2(len(st.session_state.asistentes)))
+    st.session_state.lanzar_globos = True # Activamos señal de globos
     
     if st.session_state.ronda_actual >= rondas_max:
         st.session_state.torneo_finalizado = True
-        st.balloons()
     else:
         st.session_state.ronda_actual += 1
-        st.balloons()
         generar_ronda_suiza()
 
 # --- INTERFAZ ---
 st.title("🏆 Sistema Suizo - El Poeta Franz Lameda")
+
+if st.session_state.lanzar_globos:
+    st.balloons()
+    st.session_state.lanzar_globos = False
 
 if st.session_state.registro_abierto:
     st.session_state.meta_puntos = st.radio("Meta del Encuentro:", [100, 200], horizontal=True)
@@ -112,7 +133,7 @@ if st.session_state.registro_abierto:
 else:
     rondas_max = math.ceil(math.log2(len(st.session_state.asistentes)))
     
-    # PANEL DE CONTROL (AJUSTADO SEGÚN IMAGE_1092A1.PNG)
+    # PANEL SUPERIOR
     cols = st.columns(5)
     cols[0].metric("Ronda", f"{st.session_state.ronda_actual} de {rondas_max}")
     cols[1].metric("Inscritos", len(st.session_state.asistentes))
@@ -121,6 +142,18 @@ else:
     cols[4].metric("Meta", st.session_state.meta_puntos)
 
     if not st.session_state.torneo_finalizado:
+        # TEMPORIZADOR POR RONDA
+        with st.sidebar:
+            st.header("⏱️ Temporizador")
+            minutos = st.number_input("Minutos de la ronda:", min_value=1, value=20)
+            if st.button("Iniciar Reloj"):
+                placeholder = st.empty()
+                for t in range(minutos * 60, -1, -1):
+                    mins, secs = divmod(t, 60)
+                    placeholder.metric("Tiempo Restante", f"{mins:02d}:{secs:02d}")
+                    time.sleep(1)
+                st.warning("¡TIEMPO AGOTADO!")
+        
         st.markdown("---")
         for i, m in enumerate(st.session_state.mesas_actuales):
             c1, c2, c3, c4, c5 = st.columns([3,1,1,1,3])
@@ -131,20 +164,17 @@ else:
             c5.success(f"{m[1]} / {m[3]}")
         
         if st.session_state.jugadores_pausa:
-            st.markdown("### 💤 Jugadores en Reposo")
-            for p in st.session_state.jugadores_pausa:
-                st.warning(f"**{p}** está en reposo. Suma automáticamente **{st.session_state.meta_puntos}** a favor.")
+            st.markdown(f"### 💤 En Reposo: {', '.join(st.session_state.jugadores_pausa)}")
         
-        st.markdown("---")
         if st.button("✅ REGISTRAR RESULTADOS"):
             procesar_ronda()
             st.rerun()
     else:
+        # RANKING FINAL
         st.header("🥇 RANKING DEFINITIVO")
         ranking = sorted(st.session_state.asistentes, 
                         key=lambda x: (st.session_state.juegos_ganados[x], 
                                        st.session_state.puntos_favor[x], 
                                        -st.session_state.puntos_contra[x]), reverse=True)
         for i, j in enumerate(ranking, 1):
-            color = "gold" if i==1 else "silver" if i==2 else "#cd7f32" if i==3 else "transparent"
-            st.markdown(f"<div style='padding:15px; border-radius:10px; border: 2px solid #eee; background-color:{color}; color:black; margin-bottom:10px; font-size:1.2em'><b>{i}° {j}</b> — Ganados: {st.session_state.juegos_ganados[j]} | Efectividad: {st.session_state.puntos_favor[j]} | Recibidos: {st.session_state.puntos_contra[j]}</div>", unsafe_allow_html=True)
+            st.write(f"{i}° **{j}** | Ganados: {st.session_state.juegos_ganados[j]} | Pts+: {st.session_state.puntos_favor[j]} | Pts-: {st.session_state.puntos_contra[j]}")
