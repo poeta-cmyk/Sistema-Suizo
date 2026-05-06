@@ -110,10 +110,8 @@ if st.session_state.lanzar_globos:
 if st.session_state.registro_abierto:
     st.session_state.meta_puntos = st.radio("Meta del Encuentro:", [100, 200], horizontal=True)
     st.text_input("Escribe el nombre y presiona ENTER para añadir:", key="nuevo_nombre", on_change=agregar_jugador_enter)
-    
     st.write(f"**Inscritos ({len(st.session_state.asistentes)}):** {', '.join(st.session_state.asistentes)}")
     
-    # NUEVA OPCIÓN PARA ELIMINAR JUGADORES
     if st.session_state.asistentes:
         col_el1, col_el2 = st.columns([3, 1])
         with col_el1:
@@ -128,7 +126,6 @@ if st.session_state.registro_abierto:
         generar_ronda_suiza()
         st.rerun()
 else:
-    # (El resto del código de rondas y navegación permanece intacto)
     r_max = math.ceil(math.log2(len(st.session_state.asistentes)))
     with st.sidebar:
         st.header("⏱️ Cronómetro")
@@ -146,10 +143,14 @@ else:
     if not st.session_state.torneo_finalizado:
         opciones_ronda = list(range(1, st.session_state.ronda_actual + 1))
         ronda_a_ver = st.selectbox("🔍 Ver Ronda:", opciones_ronda, index=len(opciones_ronda)-1)
-        c1, c2, c3 = st.columns(3)
+        
+        # INDICADORES SOLICITADOS
+        c1, c2, c3, c4 = st.columns(4)
         c1.metric("Ronda actual", f"{st.session_state.ronda_actual} / {r_max}")
         c2.metric("Meta", st.session_state.meta_puntos)
         c3.metric("Jugadores", len(st.session_state.asistentes))
+        # Cálculo del resto solicitado
+        c4.metric("En Reposo", len(st.session_state.asistentes) % 4)
 
         if st.session_state.ronda_actual > 1:
             with st.expander("📊 RANKING ACTUAL", expanded=False):
