@@ -11,7 +11,7 @@ for key in ['asistentes', 'juegos_ganados', 'puntos_favor', 'puntos_contra',
             'jugadores_reposo_previos', 'mesas_actuales', 'jugadores_pausa', 
             'parejas_previas']:
     if key not in st.session_state:
-        st.session_state[key] = [] if 'previos' in key or 'mesas' in key or 'pausa' in key or 'parejas' in key or 'asistentes' in key else {}
+        st.session_state[key] = [] if any(x in key for x in ['previos', 'mesas', 'pausa', 'parejas', 'asistentes']) else {}
 
 if 'ronda_actual' not in st.session_state: st.session_state.ronda_actual = 1
 if 'registro_abierto' not in st.session_state: st.session_state.registro_abierto = True
@@ -25,7 +25,7 @@ def agregar_jugador_enter():
     if nombre and nombre not in st.session_state.asistentes:
         st.session_state.asistentes.append(nombre)
         st.session_state.asistentes.sort()
-    st.session_state.nuevo_nombre = "" # Limpia el campo para el siguiente
+    st.session_state.nuevo_nombre = "" 
 
 def generar_ronda_suiza():
     jugadores = sorted(st.session_state.asistentes, 
@@ -37,6 +37,7 @@ def generar_ronda_suiza():
     if st.session_state.ronda_actual == 1:
         random.shuffle(jugadores)
     
+    # LÓGICA DE REPOSO AJUSTADA
     n_reposo = len(jugadores) % 4
     reposados_hoy = []
     if n_reposo > 0:
@@ -49,11 +50,14 @@ def generar_ronda_suiza():
         for r in reposados_hoy:
             jugadores.remove(r)
             st.session_state.jugadores_reposo_previos.append(r)
+            # AJUSTE SOLICITADO: Ganar con la mitad de la meta a favor y 0 en contra
             st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
-            st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + st.session_state.meta_puntos
-            st.session_state.puntos_contra[r] = st.session_state.puntos_contra.get(r, 0) + (st.session_state.meta_puntos // 2)
+            st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + (st.session_state.meta_puntos // 2)
+            st.session_state.puntos_contra[r] = st.session_state.puntos_contra.get(r, 0) + 0
+
     st.session_state.jugadores_pausa = reposados_hoy
     
+    # Parejas
     n_mesas = len(jugadores) // 4
     mesas_generadas = []
     disponibles = jugadores.copy()
@@ -98,28 +102,21 @@ if st.session_state.lanzar_globos:
     st.session_state.lanzar_globos = False
 
 if st.session_state.registro_abierto:
-    st.session_state.meta_puntos = st.radio("Meta:", [100, 200], horizontal=True)
-    # REGISTRO POR ENTER
+    st.session_state.meta_puntos = st.radio("Meta del Encuentro:", [100, 200], horizontal=True)
     st.text_input("Escribe el nombre y presiona ENTER para añadir:", key="nuevo_nombre", on_change=agregar_jugador_enter)
-    
-    st.write(f"**Listado de Inscritos ({len(st.session_state.asistentes)}):**")
-    st.write(", ".join(st.session_state.asistentes))
-    
+    st.write(f"**Inscritos ({len(st.session_state.asistentes)}):** {', '.join(st.session_state.asistentes)}")
     if st.button("🚀 EMPEZAR TORNEO") and len(st.session_state.asistentes) >= 4:
         st.session_state.registro_abierto = False
         generar_ronda_suiza()
         st.rerun()
 else:
     r_max = math.ceil(math.log2(len(st.session_state.asistentes)))
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Ronda", f"{st.session_state.ronda_actual} / {r_max}")
-    c2.metric("En Reposo", len(st.session_state.jugadores_pausa))
-    c3.metric("Meta", st.session_state.meta_puntos)
     
+    # PANEL DE CONTROL
     with st.sidebar:
         st.header("⏱️ Cronómetro")
-        dur = st.number_input("Minutos:", 1, 60, 20)
-        if st.button("Iniciar Tiempo"):
+        dur = st.number_input("Minutos de la ronda:", 1, 60, 20)
+        if st.button("🔔 Iniciar Tiempo"):
             st.session_state.fin_tiempo = datetime.now() + timedelta(minutes=dur)
         if st.session_state.fin_tiempo:
             rest = st.session_state.fin_tiempo - datetime.now()
@@ -128,9 +125,26 @@ else:
                 st.header(f"⏳ {m:02d}:{s:02d}")
                 if st.button("🔄 Actualizar Reloj"): st.rerun()
             else:
-                st.error("🚨 TIEMPO AGOTADO")
+                st.error("🚨 ¡TIEMPO AGOTADO!")
 
     if not st.session_state.torneo_finalizado:
+        # MÉTRICAS RÁPIDAS
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Ronda actual", f"{st.session_state.ronda_actual} / {r_max}")
+        c2.metric("Meta", st.session_state.meta_puntos)
+        c3.metric("Jugadores", len(st.session_state.asistentes))
+
+        # AJUSTE SOLICITADO: Ver ranking al comienzo de cada ronda (después de la 1)
+        if st.session_state.ronda_actual > 1:
+            with st.expander("📊 CLASIFICACIÓN ANTES DE ESTA RONDA", expanded=False):
+                ranking_temp = sorted(st.session_state.asistentes, 
+                                     key=lambda x: (st.session_state.juegos_ganados.get(x,0), 
+                                                    st.session_state.puntos_favor.get(x,0), 
+                                                    -st.session_state.puntos_contra.get(x,0)), reverse=True)
+                st.table([{"Pos": i+1, "Jugador": j, "G": st.session_state.juegos_ganados[j], "Pts+": st.session_state.puntos_favor[j]} for i, j in enumerate(ranking_temp)])
+
+        st.markdown("---")
+        # MESAS DE JUEGO
         for i, m in enumerate(st.session_state.mesas_actuales):
             col1, col2, col3 = st.columns([2, 1, 2])
             with col1: st.info(f"{m[0]} y {m[2]}")
@@ -141,14 +155,14 @@ else:
             with col3: st.success(f"{m[1]} y {m[3]}")
         
         if st.session_state.jugadores_pausa:
-            st.markdown(f"### 💤 En Reposo: {', '.join(st.session_state.jugadores_pausa)}")
+            st.warning(f"💤 **EN REPOSO (Reciben {st.session_state.meta_puntos // 2} pts):** {', '.join(st.session_state.jugadores_pausa)}")
         
         if st.button(f"💾 Registrar Ronda {st.session_state.ronda_actual}"):
             finalizar_ronda()
     else:
         st.header("🥇 POSICIONES FINALES")
-        ranking = sorted(st.session_state.asistentes, 
+        ranking_final = sorted(st.session_state.asistentes, 
                         key=lambda x: (st.session_state.juegos_ganados.get(x,0), 
                                        st.session_state.puntos_favor.get(x,0), 
                                        -st.session_state.puntos_contra.get(x,0)), reverse=True)
-        st.table([{"Pos": i+1, "Jugador": j, "G": st.session_state.juegos_ganados[j], "Pts+": st.session_state.puntos_favor[j]} for i, j in enumerate(ranking)])
+        st.table([{"Pos": i+1, "Jugador": j, "G": st.session_state.juegos_ganados[j], "Pts+": st.session_state.puntos_favor[j], "Pts-": st.session_state.puntos_contra[j]} for i, j in enumerate(ranking_final)])
