@@ -28,8 +28,7 @@ def agregar_jugador_enter():
     st.session_state.nuevo_nombre = "" 
 
 def generar_ronda_suiza():
-    """Lógica de emparejamiento corregida para 9 jugadores."""
-    # 1. Ordenar por mérito Franz Lameda
+    # Orden de mérito estricto
     jugadores = sorted(st.session_state.asistentes, 
                       key=lambda x: (st.session_state.juegos_ganados.get(x, 0), 
                                      st.session_state.puntos_favor.get(x, 0), 
@@ -39,30 +38,24 @@ def generar_ronda_suiza():
     if st.session_state.ronda_actual == 1:
         random.shuffle(jugadores)
     
-    # 2. Manejo de Reposo (Estrictamente 1 jugador si son 9)
     n_reposo = len(jugadores) % 4
     reposados_hoy = []
     if n_reposo > 0:
-        # Candidatos que NO han reposado antes
         candidatos = [j for j in reversed(jugadores) if j not in st.session_state.jugadores_reposo_previos]
         if not candidatos:
             st.session_state.jugadores_reposo_previos = []
             candidatos = list(reversed(jugadores))
         
-        # Se toma solo el número necesario (ej. 1 para 9 jugadores)
         reposados_hoy = candidatos[:n_reposo]
         for r in reposados_hoy:
             jugadores.remove(r)
             st.session_state.jugadores_reposo_previos.append(r)
-            # Solo se asignan puntos aquí si es la primera ronda, 
-            # para rondas posteriores se asignan al FINALIZAR la ronda previa.
             if st.session_state.ronda_actual == 1:
                 st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
                 st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + (st.session_state.meta_puntos // 2)
 
     st.session_state.jugadores_pausa = reposados_hoy
     
-    # 3. Generación de Mesas
     n_mesas = len(jugadores) // 4
     mesas_generadas = []
     disponibles = jugadores.copy()
@@ -79,7 +72,6 @@ def generar_ronda_suiza():
     st.session_state.mesas_actuales = mesas_generadas
 
 def finalizar_ronda():
-    # 1. Registrar puntos de las mesas activas
     for i, m in enumerate(st.session_state.mesas_actuales):
         p_izq = st.session_state.get(f"p_izq_{i}_{st.session_state.ronda_actual}", 0)
         p_der = st.session_state.get(f"p_der_{i}_{st.session_state.ronda_actual}", 0)
@@ -98,13 +90,12 @@ def finalizar_ronda():
     else:
         st.session_state.ronda_actual += 1
         generar_ronda_suiza()
-        # Asignar puntos al nuevo reposado de la ronda que entra
         for r in st.session_state.jugadores_pausa:
             st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
             st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + (st.session_state.meta_puntos // 2)
     st.rerun()
 
-# --- INTERFAZ (Se mantiene idéntica a la aprobada) ---
+# --- INTERFAZ ---
 st.title("🏆 Sistema Suizo - El Poeta Franz Lameda")
 
 if st.session_state.lanzar_globos:
@@ -142,8 +133,9 @@ else:
         c2.metric("Meta", st.session_state.meta_puntos)
         c3.metric("Jugadores", len(st.session_state.asistentes))
 
+        # CAMBIO SOLICITADO: "RANKING ACTUAL"
         if st.session_state.ronda_actual > 1:
-            with st.expander("📊 CLASIFICACIÓN ANTES DE ESTA RONDA", expanded=False):
+            with st.expander("📊 RANKING ACTUAL", expanded=False):
                 ranking_temp = sorted(st.session_state.asistentes, 
                                      key=lambda x: (st.session_state.juegos_ganados.get(x,0), 
                                                     st.session_state.puntos_favor.get(x,0), 
