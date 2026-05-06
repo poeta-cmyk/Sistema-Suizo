@@ -49,9 +49,6 @@ def generar_ronda_suiza():
         for r in reposados_hoy:
             jugadores.remove(r)
             st.session_state.jugadores_reposo_previos.append(r)
-            if st.session_state.ronda_actual == 1:
-                st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
-                st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + (st.session_state.meta_puntos // 2)
 
     st.session_state.jugadores_pausa = reposados_hoy
     
@@ -70,7 +67,6 @@ def generar_ronda_suiza():
         mesas_generadas.append([a, b, c, d])
     
     st.session_state.mesas_actuales = mesas_generadas
-    # Guardamos en el historial para permitir la consulta posterior
     st.session_state.historial_mesas.append({
         'ronda': st.session_state.ronda_actual,
         'mesas': mesas_generadas,
@@ -78,14 +74,23 @@ def generar_ronda_suiza():
     })
 
 def finalizar_ronda():
+    # 1. Procesar mesas jugadas
     for i, m in enumerate(st.session_state.mesas_actuales):
         p_izq = st.session_state.get(f"p_izq_{i}_{st.session_state.ronda_actual}", 0)
-        p_der = st.session_state.get(f"p_der_{i}_{st.session_state.ronda_actual}", 0)
+        p_der = st.session_state.get(f"p_der_{i}_{st.session_state.ronda_actual}")
         
+        # Puntos para cada jugador de la pareja
         for p, pf, pc in [(m[0], p_izq, p_der), (m[2], p_izq, p_der), (m[1], p_der, p_izq), (m[3], p_der, p_izq)]:
             st.session_state.puntos_favor[p] = st.session_state.puntos_favor.get(p, 0) + pf
             st.session_state.puntos_contra[p] = st.session_state.puntos_contra.get(p, 0) + pc
-            if pf > pc: st.session_state.juegos_ganados[p] = st.session_state.juegos_ganados.get(p, 0) + 1
+            if pf > pc: 
+                st.session_state.juegos_ganados[p] = st.session_state.juegos_ganados.get(p, 0) + 1
+
+    # 2. Procesar jugador en reposo (Asignación única)
+    for r in st.session_state.jugadores_pausa:
+        st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
+        st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + (st.session_state.meta_puntos // 2)
+        st.session_state.puntos_contra[r] = st.session_state.puntos_contra.get(r, 0) + 0
 
     rondas_max = math.ceil(math.log2(len(st.session_state.asistentes)))
     st.session_state.lanzar_globos = True
@@ -96,9 +101,6 @@ def finalizar_ronda():
     else:
         st.session_state.ronda_actual += 1
         generar_ronda_suiza()
-        for r in st.session_state.jugadores_pausa:
-            st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
-            st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + (st.session_state.meta_puntos // 2)
     st.rerun()
 
 # --- INTERFAZ ---
@@ -134,7 +136,6 @@ else:
                 st.error("🚨 ¡TIEMPO AGOTADO!")
 
     if not st.session_state.torneo_finalizado:
-        # NUEVA FUNCIONALIDAD: Navegación de Rondas
         opciones_ronda = list(range(1, st.session_state.ronda_actual + 1))
         ronda_a_ver = st.selectbox("🔍 Ver Ronda:", opciones_ronda, index=len(opciones_ronda)-1)
 
@@ -152,8 +153,6 @@ else:
                 st.table([{"Pos": i+1, "Jugador": j, "G": st.session_state.juegos_ganados.get(j, 0), "Pts+": st.session_state.puntos_favor.get(j, 0)} for i, j in enumerate(ranking_temp)])
 
         st.markdown("---")
-        
-        # Lógica para mostrar la ronda seleccionada (actual o anterior)
         datos_ronda = next((item for item in st.session_state.historial_mesas if item['ronda'] == ronda_a_ver), None)
         
         if datos_ronda:
@@ -161,7 +160,6 @@ else:
                 col1, col2, col3 = st.columns([2, 1, 2])
                 with col1: st.info(f"{m[0]} y {m[2]}")
                 with col2: 
-                    # Solo permite editar si es la ronda actual
                     disponible = ronda_a_ver == st.session_state.ronda_actual
                     st.number_input("Pts", key=f"p_izq_{i}_{ronda_a_ver}", min_value=0, step=1, disabled=not disponible)
                     st.markdown(f"<center><b>Mesa {i+1}</b></center>", unsafe_allow_html=True)
@@ -174,8 +172,6 @@ else:
         if st.session_state.ronda_actual == ronda_a_ver:
             if st.button(f"💾 Registrar Ronda {st.session_state.ronda_actual}"):
                 finalizar_ronda()
-        else:
-            st.info(f"Visualizando datos históricos de la Ronda {ronda_a_ver}. Para registrar resultados, vuelva a la Ronda {st.session_state.ronda_actual}.")
     else:
         st.header("🥇 POSICIONES FINALES")
         ranking_final = sorted(st.session_state.asistentes, 
