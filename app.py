@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 # --- CONFIGURACIÓN Y ESTADO ---
 st.set_page_config(layout="wide", page_title="Sistema Suizo Pro - Franz Lameda")
 
-# Inicialización de variables
+# Inicialización de variables protegidas
 for key in ['asistentes', 'juegos_ganados', 'puntos_favor', 'puntos_contra', 
             'jugadores_reposo_previos', 'mesas_actuales', 'jugadores_pausa', 
             'parejas_previas']:
@@ -37,7 +37,6 @@ def generar_ronda_suiza():
     if st.session_state.ronda_actual == 1:
         random.shuffle(jugadores)
     
-    # LÓGICA DE REPOSO AJUSTADA
     n_reposo = len(jugadores) % 4
     reposados_hoy = []
     if n_reposo > 0:
@@ -50,14 +49,13 @@ def generar_ronda_suiza():
         for r in reposados_hoy:
             jugadores.remove(r)
             st.session_state.jugadores_reposo_previos.append(r)
-            # AJUSTE SOLICITADO: Ganar con la mitad de la meta a favor y 0 en contra
+            # Puntos de reposo: Mitad de la meta
             st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
             st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + (st.session_state.meta_puntos // 2)
             st.session_state.puntos_contra[r] = st.session_state.puntos_contra.get(r, 0) + 0
 
     st.session_state.jugadores_pausa = reposados_hoy
     
-    # Parejas
     n_mesas = len(jugadores) // 4
     mesas_generadas = []
     disponibles = jugadores.copy()
@@ -112,7 +110,6 @@ if st.session_state.registro_abierto:
 else:
     r_max = math.ceil(math.log2(len(st.session_state.asistentes)))
     
-    # PANEL DE CONTROL
     with st.sidebar:
         st.header("⏱️ Cronómetro")
         dur = st.number_input("Minutos de la ronda:", 1, 60, 20)
@@ -128,23 +125,25 @@ else:
                 st.error("🚨 ¡TIEMPO AGOTADO!")
 
     if not st.session_state.torneo_finalizado:
-        # MÉTRICAS RÁPIDAS
         c1, c2, c3 = st.columns(3)
         c1.metric("Ronda actual", f"{st.session_state.ronda_actual} / {r_max}")
         c2.metric("Meta", st.session_state.meta_puntos)
         c3.metric("Jugadores", len(st.session_state.asistentes))
 
-        # AJUSTE SOLICITADO: Ver ranking al comienzo de cada ronda (después de la 1)
+        # RANKING PREVIO (CON CORRECCIÓN .get() PARA EVITAR EL ERROR)
         if st.session_state.ronda_actual > 1:
             with st.expander("📊 CLASIFICACIÓN ANTES DE ESTA RONDA", expanded=False):
                 ranking_temp = sorted(st.session_state.asistentes, 
                                      key=lambda x: (st.session_state.juegos_ganados.get(x,0), 
                                                     st.session_state.puntos_favor.get(x,0), 
                                                     -st.session_state.puntos_contra.get(x,0)), reverse=True)
-                st.table([{"Pos": i+1, "Jugador": j, "G": st.session_state.juegos_ganados[j], "Pts+": st.session_state.puntos_favor[j]} for i, j in enumerate(ranking_temp)])
+                # Aquí se corrigió el acceso a los datos
+                st.table([{"Pos": i+1, 
+                           "Jugador": j, 
+                           "G": st.session_state.juegos_ganados.get(j, 0), 
+                           "Pts+": st.session_state.puntos_favor.get(j, 0)} for i, j in enumerate(ranking_temp)])
 
         st.markdown("---")
-        # MESAS DE JUEGO
         for i, m in enumerate(st.session_state.mesas_actuales):
             col1, col2, col3 = st.columns([2, 1, 2])
             with col1: st.info(f"{m[0]} y {m[2]}")
@@ -165,4 +164,10 @@ else:
                         key=lambda x: (st.session_state.juegos_ganados.get(x,0), 
                                        st.session_state.puntos_favor.get(x,0), 
                                        -st.session_state.puntos_contra.get(x,0)), reverse=True)
-        st.table([{"Pos": i+1, "Jugador": j, "G": st.session_state.juegos_ganados[j], "Pts+": st.session_state.puntos_favor[j], "Pts-": st.session_state.puntos_contra[j]} for i, j in enumerate(ranking_final)])
+        # También corregido en el ranking final
+        st.table([{"Pos": i+1, 
+                   "Jugador": j, 
+                   "G": st.session_state.juegos_ganados.get(j, 0), 
+                   "Pts+": st.session_state.puntos_favor.get(j, 0), 
+                   "Pts-": st.session_state.puntos_contra.get(j, 0)} for i, j in enumerate(ranking_final)])
+            
