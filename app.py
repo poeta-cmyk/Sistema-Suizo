@@ -1,6 +1,7 @@
 import streamlit as st
 import math
 import random
+import time
 from datetime import datetime, timedelta
 
 # --- CONFIGURACIÓN Y ESTADO ---
@@ -33,7 +34,6 @@ def eliminar_jugadores():
     st.session_state.asistentes.sort()
 
 def generar_ronda_suiza():
-    # BAREMOS: 1. G, 2. Ef, 3. Pts- (menor es mejor)
     jugadores = sorted(st.session_state.asistentes, 
                       key=lambda x: (st.session_state.juegos_ganados.get(x, 0), 
                                      st.session_state.efectividad.get(x, 0), 
@@ -73,16 +73,11 @@ def generar_ronda_suiza():
 
 def finalizar_ronda():
     meta = st.session_state.meta_puntos
-    
-    # 1. Registro de mesas activas
     for i, m in enumerate(st.session_state.mesas_actuales):
         p_izq = st.session_state.get(f"p_izq_{i}_{st.session_state.ronda_actual}", 0)
         p_der = st.session_state.get(f"p_der_{i}_{st.session_state.ronda_actual}", 0)
-        
-        # Efectividad: Ganadores suma lo que le faltó al rival, Perdedores resta lo que les faltó.
         ef_izq = (p_izq - meta) if p_izq < p_der else (meta - p_der)
         ef_der = (p_der - meta) if p_der < p_izq else (meta - p_izq)
-
         for p, pf, pc, ef in [(m[0], p_izq, p_der, ef_izq), (m[2], p_izq, p_der, ef_izq), 
                               (m[1], p_der, p_izq, ef_der), (m[3], p_der, p_izq, ef_der)]:
             st.session_state.puntos_favor[p] = st.session_state.puntos_favor.get(p, 0) + pf
@@ -90,7 +85,6 @@ def finalizar_ronda():
             st.session_state.efectividad[p] = st.session_state.efectividad.get(p, 0) + ef
             if pf > pc: st.session_state.juegos_ganados[p] = st.session_state.juegos_ganados.get(p, 0) + 1
 
-    # 2. REPOSO DINÁMICO: 1 Juego ganado y Efectividad = Mitad de la Meta
     beneficio_reposo = meta // 2
     for r in st.session_state.jugadores_pausa:
         st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
@@ -125,16 +119,24 @@ if st.session_state.registro_abierto:
         st.session_state.registro_abierto = False; generar_ronda_suiza(); st.rerun()
 else:
     r_max = math.ceil(math.log2(len(st.session_state.asistentes)))
+    
+    # --- SECCIÓN DEL RELOJ (LO ÚNICO MODIFICADO) ---
     with st.sidebar:
-        st.header("⏱️ Cronómetro")
-        dur = st.number_input("Minutos:", 1, 60, 20)
-        if st.button("🔔"): st.session_state.fin_tiempo = datetime.now() + timedelta(minutes=dur)
+        st.header("⏱️ Reloj de Ronda")
+        dur = st.number_input("Establecer Minutos:", 1, 60, 20)
+        if st.button("🔔 INICIAR CRONÓMETRO"):
+            st.session_state.fin_tiempo = datetime.now() + timedelta(minutes=dur)
+        
         if st.session_state.fin_tiempo:
-            rest = st.session_state.fin_tiempo - datetime.now()
-            if rest.total_seconds() > 0:
-                m, s = divmod(int(rest.total_seconds()), 60); st.header(f"⏳ {m:02d}:{s:02d}")
-                if st.button("🔄"): st.rerun()
-            else: st.error("🚨 TIEMPO AGOTADO")
+            restante = st.session_state.fin_tiempo - datetime.now()
+            if restante.total_seconds() > 0:
+                mins, secs = divmod(int(restante.total_seconds()), 60)
+                st.markdown(f"## ⏳ {mins:02d}:{secs:02d}")
+                time.sleep(1) # Pequeña pausa para suavizar
+                st.rerun()    # Auto-actualización automática
+            else:
+                st.error("🚨 ¡TIEMPO AGOTADO!")
+                st.session_state.fin_tiempo = None
 
     if not st.session_state.torneo_finalizado:
         opciones_ronda = list(range(1, st.session_state.ronda_actual + 1))
