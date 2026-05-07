@@ -33,6 +33,24 @@ def eliminar_jugadores():
         st.session_state.asistentes.remove(j)
     st.session_state.asistentes.sort()
 
+# --- NUEVA FUNCIÓN DE EDICIÓN ---
+@st.dialog("Editar Atleta")
+def editar_atleta_dialog(nombre_viejo):
+    nuevo_nombre = st.text_input("Corregir nombre de Atleta:", value=nombre_viejo).strip().upper()
+    if st.button("✅ GUARDAR CAMBIO"):
+        if nuevo_nombre and nuevo_nombre != nombre_viejo:
+            # Actualizar en la lista principal
+            idx = st.session_state.asistentes.index(nombre_viejo)
+            st.session_state.asistentes[idx] = nuevo_nombre
+            st.session_state.asistentes.sort()
+            
+            # Traspasar estadísticas si existen
+            for dict_stat in [st.session_state.juegos_ganados, st.session_state.puntos_favor, 
+                             st.session_state.puntos_contra, st.session_state.efectividad]:
+                if nombre_viejo in dict_stat:
+                    dict_stat[nuevo_nombre] = dict_stat.pop(nombre_viejo)
+            st.rerun()
+
 def generar_ronda_suiza():
     jugadores = sorted(st.session_state.asistentes, 
                       key=lambda x: (st.session_state.juegos_ganados.get(x, 0), 
@@ -102,22 +120,27 @@ if st.session_state.registro_abierto:
     st.text_input("Escribe el nombre y presiona ENTER:", key="nuevo_nombre", on_change=agregar_jugador_enter)
     if st.session_state.asistentes:
         st.write(f"**Inscritos ({len(st.session_state.asistentes)}):** {', '.join(st.session_state.asistentes)}")
-        col_el1, col_el2 = st.columns([3, 1])
-        with col_el1: st.multiselect("Eliminar:", st.session_state.asistentes, key="a_eliminar")
+        col_el1, col_el2, col_el3 = st.columns([3, 0.5, 0.5])
+        with col_el1: 
+            seleccionado = st.selectbox("Seleccione Atleta para gestionar:", st.session_state.asistentes, key="atleta_gestion")
         with col_el2: 
-            if st.button("🗑️"): eliminar_jugadores(); st.rerun()
+            if st.button("✏️", help="Editar nombre"):
+                editar_atleta_dialog(seleccionado)
+        with col_el3:
+            if st.button("🗑️", help="Eliminar Atleta"):
+                st.session_state.asistentes.remove(seleccionado)
+                st.session_state.asistentes.sort()
+                st.rerun()
+                
     if st.button("🚀 EMPEZAR TORNEO") and len(st.session_state.asistentes) >= 4:
         st.session_state.registro_abierto = False; generar_ronda_suiza(); st.rerun()
 else:
     r_max = math.ceil(math.log2(len(st.session_state.asistentes)))
     
-    # --- SECCIÓN DEL TIEMPO (PULIDA SEGÚN INSTRUCCIONES) ---
+    # --- SECCIÓN DEL TIEMPO (INVARIABLE) ---
     with st.sidebar:
         st.header("⏱️ Reloj de Ronda")
-        
-        # Selector de minutos (siempre visible para manipular antes de iniciar)
         dur_ajuste = st.number_input("Establecer Minutos:", 1, 60, 20)
-        
         col_btns = st.columns(2)
         with col_btns[0]:
             if st.button("🔔 INICIAR"):
@@ -129,36 +152,23 @@ else:
                 st.session_state.fin_tiempo = None
                 st.session_state.cronometro_activo = False
                 st.rerun()
-        
         if st.session_state.cronometro_activo:
             restante = st.session_state.fin_tiempo - datetime.now()
             segundos = restante.total_seconds()
-            
             if segundos > 0:
                 mins, secs = divmod(int(segundos), 60)
-                # Lógica de Alerta: Menos de 5 minutos (300 segundos)
                 if segundos <= 300:
-                    st.markdown(f"""
-                        <div style="background-color: #FFEB3B; padding: 20px; border-radius: 10px; border: 5px solid #F44336; text-align: center;">
+                    st.markdown(f"""<div style="background-color: #FFEB3B; padding: 20px; border-radius: 10px; border: 5px solid #F44336; text-align: center;">
                             <p style="color: #F44336; font-size: 20px; font-weight: bold; margin-bottom: 5px;">⚠️ ÚLTIMOS MINUTOS</p>
-                            <h1 style="color: #F44336; font-size: 60px; margin: 0;">{mins:02d}:{secs:02d}</h1>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<h1 style='text-align: center;'>⏳ {mins:02d}:{secs:02d}</h1>", unsafe_allow_html=True)
-                
-                time.sleep(1)
-                st.rerun()
+                            <h1 style="color: #F44336; font-size: 60px; margin: 0;">{mins:02d}:{secs:02d}</h1></div>""", unsafe_allow_html=True)
+                else: st.markdown(f"<h1 style='text-align: center;'>⏳ {mins:02d}:{secs:02d}</h1>", unsafe_allow_html=True)
+                time.sleep(1); st.rerun()
             else:
-                # Tiempo Vencido
-                st.markdown("""
-                    <div style="background-color: #F44336; padding: 20px; border-radius: 10px; text-align: center;">
-                        <h2 style="color: white; margin: 0;">🛑 TIEMPO VENCIDO</h2>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown("""<div style="background-color: #F44336; padding: 20px; border-radius: 10px; text-align: center;">
+                        <h2 style="color: white; margin: 0;">🛑 TIEMPO VENCIDO</h2></div>""", unsafe_allow_html=True)
                 st.session_state.cronometro_activo = False
 
-    # (El resto del programa sigue sólido como un lingote)
+    # --- PANTALLA PRINCIPAL (INVARIABLE) ---
     if not st.session_state.torneo_finalizado:
         opciones_ronda = list(range(1, st.session_state.ronda_actual + 1))
         ronda_a_ver = st.selectbox("🔍 Ver Ronda:", opciones_ronda, index=len(opciones_ronda)-1)
