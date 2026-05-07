@@ -79,6 +79,7 @@ def generar_ronda_suiza():
     })
 
 def finalizar_ronda():
+    # 1. Registro de mesas activas
     for i, m in enumerate(st.session_state.mesas_actuales):
         p_izq = st.session_state.get(f"p_izq_{i}_{st.session_state.ronda_actual}", 0)
         p_der = st.session_state.get(f"p_der_{i}_{st.session_state.ronda_actual}", 0)
@@ -87,9 +88,13 @@ def finalizar_ronda():
             st.session_state.puntos_contra[p] = st.session_state.puntos_contra.get(p, 0) + pc
             if pf > pc: st.session_state.juegos_ganados[p] = st.session_state.juegos_ganados.get(p, 0) + 1
 
+    # 2. JUSTICIA PARA REPOSADOS (1, 2 o 3 jugadores)
+    # Se recorren todos los que están en pausa y se les asigna el beneficio pactado
+    beneficio_puntos = st.session_state.meta_puntos // 2
     for r in st.session_state.jugadores_pausa:
         st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
-        st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + (st.session_state.meta_puntos // 2)
+        st.session_state.puntos_favor[r] = st.session_state.puntos_favor.get(r, 0) + beneficio_puntos
+        st.session_state.puntos_contra[r] = st.session_state.puntos_contra.get(r, 0) + 0
 
     rondas_max = math.ceil(math.log2(len(st.session_state.asistentes)))
     st.session_state.lanzar_globos = True
@@ -144,12 +149,10 @@ else:
         opciones_ronda = list(range(1, st.session_state.ronda_actual + 1))
         ronda_a_ver = st.selectbox("🔍 Ver Ronda:", opciones_ronda, index=len(opciones_ronda)-1)
         
-        # INDICADORES SOLICITADOS
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Ronda actual", f"{st.session_state.ronda_actual} / {r_max}")
         c2.metric("Meta", st.session_state.meta_puntos)
         c3.metric("Jugadores", len(st.session_state.asistentes))
-        # Cálculo del resto solicitado
         c4.metric("En Reposo", len(st.session_state.asistentes) % 4)
 
         if st.session_state.ronda_actual > 1:
