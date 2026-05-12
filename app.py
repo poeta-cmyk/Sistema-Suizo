@@ -131,4 +131,9 @@ else:
                     st.number_input("P1", key=f"p1_r{r_ver}_m{i}", min_value=0)
                     st.number_input("P2", key=f"p2_r{r_ver}_m{i}", min_value=0)
                 with c3: st.success(f"{m[1]} / {m[3]}")
-        if not r_data['finalizada'] and r_ver
+        if not r_data['finalizada'] and r_ver == st.session_state.ronda_actual:
+            if st.button("💾 CERRAR RONDA"): finalizar_ronda()
+
+    with t2:
+        rk = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados.get(x,0), st.session_state.efectividad.get(x,0), -st.session_state.puntos_contra.get(x,0)), reverse=True)
+        st.table([{"Pos": i+1, "Atleta": j, "G": st.session_state.juegos_ganados.get(j,0), "Ef": st.session_state.efectividad.get(j,0), "Contra": st.session_state.puntos_contra.get(j,0)} for i, j in enumerate(rk)])
