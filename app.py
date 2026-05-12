@@ -3,11 +3,11 @@ import math
 import random
 import time
 import json
-from datetime import datetime, timedelta
 
 # --- 1. CONFIGURACIÓN Y ESTADO ---
 st.set_page_config(layout="wide", page_title="ADEL - Sistema Suizo")
 
+# Inicialización segura
 keys = ['asistentes', 'juegos_ganados', 'puntos_favor', 'puntos_contra', 
         'efectividad', 'jugadores_reposo_previos', 'mesas_actuales', 
         'jugadores_pausa', 'parejas_previas', 'historial_mesas']
@@ -18,71 +18,96 @@ for key in keys:
 
 if 'ronda_actual' not in st.session_state: st.session_state.ronda_actual = 1
 if 'registro_abierto' not in st.session_state: st.session_state.registro_abierto = True
-if 'torneo_finalizado' not in st.session_state: st.session_state.torneo_finalizado = False
 if 'meta_puntos' not in st.session_state: st.session_state.meta_puntos = 100
 
-# --- 2. SEGURIDAD ---
+# --- 2. FUNCIONES DE LÓGICA ---
 def exportar_datos():
-    datos = {k: st.session_state[k] for k in keys + ['ronda_actual', 'registro_abierto', 'torneo_finalizado', 'meta_puntos']}
+    datos = {k: st.session_state[k] for k in keys + ['ronda_actual', 'registro_abierto', 'meta_puntos']}
     return json.dumps(datos, indent=4)
 
-def importar_datos(archivo_subido):
-    if archivo_subido is not None:
-        datos = json.load(archivo_subido)
-        for k, v in datos.items():
-            st.session_state[k] = v
-        st.rerun()
-
-# --- 3. LÓGICA DE REGISTRO Y RONDAS ---
-def agregar_jugador_enter():
+def agregar_jugador():
     nombre = st.session_state.nuevo_nombre.strip().upper()
     if nombre and nombre not in st.session_state.asistentes:
         st.session_state.asistentes.append(nombre)
         st.session_state.asistentes.sort()
     st.session_state.nuevo_nombre = "" 
 
-@st.dialog("Editar Atleta")
-def editar_atleta_dialog(nombre_viejo):
-    nuevo_nombre = st.text_input("Corregir nombre:", value=nombre_viejo).strip().upper()
-    if st.button("✅ GUARDAR"):
-        if nuevo_nombre and nuevo_nombre != nombre_viejo:
-            idx = st.session_state.asistentes.index(nombre_viejo)
-            st.session_state.asistentes[idx] = nuevo_nombre
-            st.rerun()
-
 def generar_ronda_suiza():
-    # Ordenar para emparejamiento (G, Ef, -Contra)
     jugadores = sorted(st.session_state.asistentes, 
                       key=lambda x: (st.session_state.juegos_ganados.get(x, 0), 
                                      st.session_state.efectividad.get(x, 0),
                                      -st.session_state.puntos_contra.get(x, 0)), reverse=True)
-    
     if st.session_state.ronda_actual == 1: random.shuffle(jugadores)
-    
     n_reposo = len(jugadores) % 4
     reposados = jugadores[-n_reposo:] if n_reposo > 0 else []
     activos = jugadores[:-n_reposo] if n_reposo > 0 else jugadores
-    
     st.session_state.jugadores_pausa = reposados
-    mesas = [activos[i:i+4] for i in range(0, len(activos), 4)]
-    
-    st.session_state.mesas_actuales = mesas
-    st.session_state.historial_mesas.append({
-        'ronda': st.session_state.ronda_actual, 'mesas': mesas, 
-        'reposo': reposados, 'resultados': {}
-    })
+    st.session_state.mesas_actuales = [activos[i:i+4] for i in range(0, len(activos), 4)]
+    st.session_state.historial_mesas.append({'ronda': st.session_state.ronda_actual, 'mesas': st.session_state.mesas_actuales, 'resultados': {}})
 
 def finalizar_ronda():
     meta = st.session_state.meta_puntos
-    idx_h = len(st.session_state.historial_mesas) - 1
-    
     for i, mesa in enumerate(st.session_state.mesas_actuales):
         p_izq = st.session_state.get(f"p_izq_{i}", 0)
         p_der = st.session_state.get(f"p_der_{i}", 0)
-        
-        st.session_state.historial_mesas[idx_h]['resultados'][i] = {'izq': p_izq, 'der': p_der}
-        
-        # Lógica ADEL: Ef = Meta - Puntos Perdedor
         if p_izq >= p_der:
             val_ef = meta - p_der
-            gan,
+            gan, per = [mesa[0], mesa[2]], [mesa[1], mesa[3]]
+            pg, pp = p_izq, p_der
+        else:
+            val_ef = meta - p_izq
+            gan, per = [mesa[1], mesa[3]], [mesa[0], mesa[2]]
+            pg, pp = p_der, p_izq
+        for g in gan:
+            st.session_state.juegos_ganados[g] = st.session_state.juegos_ganados.get(g, 0) + 1
+            st.session_state.efectividad[g] = st.session_state.efectividad.get(g, 0) + val_ef
+            st.session_state.puntos_contra[g] = st.session_state.puntos_contra.get(g, 0) + pp
+        for p in per:
+            st.session_state.efectividad[p] = st.session_state.efectividad.get(p, 0) - val_ef
+            st.session_state.puntos_contra[p] = st.session_state.puntos_contra.get(p, 0) + pg
+    for r in st.session_state.jugadores_pausa:
+        st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
+        st.session_state.efectividad[r] = st.session_state.efectividad.get(r, 0) + (meta // 2)
+    st.session_state.ronda_actual += 1
+    generar_ronda_suiza()
+    st.rerun()
+
+# --- 3. INTERFAZ ---
+st.title("Asociación de Dominó del Estado Lara (ADEL) - Sistema Suizo")
+
+with st.sidebar:
+    st.header("💾 Seguridad")
+    st.download_button("📥 RESGUARDAR", data=exportar_datos(), file_name="respaldo.json", mime="application/json")
+    st.markdown("---")
+    st.caption("Creado por Poeta")
+
+if st.session_state.registro_abierto:
+    st.subheader("📝 Registro de Atletas")
+    st.session_state.meta_puntos = st.radio("Meta:", [100, 200], horizontal=True)
+    st.text_input("Atleta + ENTER:", key="nuevo_nombre", on_change=agregar_jugador)
+    if st.session_state.asistentes:
+        sel = st.selectbox("Inscritos:", st.session_state.asistentes)
+        if st.button("🗑️ Borrar Seleccionado"):
+            st.session_state.asistentes.remove(sel)
+            st.rerun()
+        if st.button("🚀 INICIAR TORNEO") and len(st.session_state.asistentes) >= 4:
+            st.session_state.registro_abierto = False
+            generar_ronda_suiza()
+            st.rerun()
+else:
+    st.header(f"🃏 Ronda Actual: {st.session_state.ronda_actual}")
+    with st.expander("📊 RANKING"):
+        rk = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados.get(x, 0), st.session_state.efectividad.get(x, 0), -st.session_state.puntos_contra.get(x, 0)), reverse=True)
+        st.table([{"Atleta": j, "G": st.session_state.juegos_ganados.get(j,0), "Ef": st.session_state.efectividad.get(j,0), "P. Contra": st.session_state.puntos_contra.get(j,0)} for j in rk])
+    
+    for i, m in enumerate(st.session_state.mesas_actuales):
+        st.write(f"### Mesa {i+1}")
+        c1, c2, c3 = st.columns([2, 1, 2])
+        with c1: st.info(f"{m[0]} / {m[2]}")
+        with c2:
+            st.number_input("Pts P1", key=f"p_izq_{i}", min_value=0)
+            st.number_input("Pts P2", key=f"p_der_{i}", min_value=0)
+        with c3: st.success(f"{m[1]} / {m[3]}")
+    
+    if st.button("💾 CERRAR RONDA"):
+        finalizar_ronda()
