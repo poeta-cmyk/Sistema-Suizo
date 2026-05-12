@@ -76,13 +76,25 @@ def generar_ronda_suiza():
         st.session_state.parejas_previas.append({b, d})
         mesas_generadas.append([a, b, c, d])
     st.session_state.mesas_actuales = mesas_generadas
-    st.session_state.historial_mesas.append({'ronda': st.session_state.ronda_actual, 'mesas': mesas_generadas, 'reposo': reposados_hoy.copy()})
+    # Guardamos la ronda con espacio para los resultados
+    st.session_state.historial_mesas.append({
+        'ronda': st.session_state.ronda_actual, 
+        'mesas': mesas_generadas, 
+        'reposo': reposados_hoy.copy(),
+        'resultados': {} # Diccionario para guardar los puntos permanentemente
+    })
 
 def finalizar_ronda():
     meta = st.session_state.meta_puntos
+    idx_h = next(i for i, h in enumerate(st.session_state.historial_mesas) if h['ronda'] == st.session_state.ronda_actual)
+    
     for i, m in enumerate(st.session_state.mesas_actuales):
         p_izq = st.session_state.get(f"p_izq_{i}_{st.session_state.ronda_actual}", 0)
         p_der = st.session_state.get(f"p_der_{i}_{st.session_state.ronda_actual}", 0)
+        
+        # Guardar en el historial para consulta futura
+        st.session_state.historial_mesas[idx_h]['resultados'][i] = {'izq': p_izq, 'der': p_der}
+        
         ef_izq = (p_izq - meta) if p_izq < p_der else (meta - p_der)
         ef_der = (p_der - meta) if p_der < p_izq else (meta - p_izq)
         for p, pf, pc, ef in [(m[0], p_izq, p_der, ef_izq), (m[2], p_izq, p_der, ef_izq), 
@@ -91,13 +103,19 @@ def finalizar_ronda():
             st.session_state.puntos_contra[p] = st.session_state.puntos_contra.get(p, 0) + pc
             st.session_state.efectividad[p] = st.session_state.efectividad.get(p, 0) + ef
             if pf > pc: st.session_state.juegos_ganados[p] = st.session_state.juegos_ganados.get(p, 0) + 1
+            
     for r in st.session_state.jugadores_pausa:
         st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
         st.session_state.efectividad[r] = st.session_state.efectividad.get(r, 0) + (meta // 2)
+    
     st.session_state.fin_tiempo = None 
     st.session_state.cronometro_activo = False
-    if st.session_state.ronda_actual >= math.ceil(math.log2(len(st.session_state.asistentes))): st.session_state.torneo_finalizado = True
-    else: st.session_state.ronda_actual += 1; generar_ronda_suiza()
+    
+    if st.session_state.ronda_actual >= math.ceil(math.log2(len(st.session_state.asistentes))):
+        st.session_state.torneo_finalizado = True
+    else:
+        st.session_state.ronda_actual += 1
+        generar_ronda_suiza()
     st.rerun()
 
 # --- INTERFAZ ---
@@ -145,6 +163,7 @@ else:
     if not st.session_state.torneo_finalizado:
         opciones_ronda = list(range(1, st.session_state.ronda_actual + 1))
         ronda_v = st.selectbox("🔍 Ver Ronda:", opciones_ronda, index=len(opciones_ronda)-1)
+        
         if st.session_state.ronda_actual > 1:
             with st.expander("📊 RANKING ACTUAL"):
                 rk = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados.get(x,0), st.session_state.efectividad.get(x,0), -st.session_state.puntos_contra.get(x,0)), reverse=True)
@@ -155,12 +174,20 @@ else:
             for i, m in enumerate(datos_r['mesas']):
                 c1, c2, c3 = st.columns([2, 1, 2])
                 with c1: st.info(f"{m[0]} y {m[2]}")
-                with c2: 
-                    st.number_input("Pts", key=f"p_izq_{i}_{ronda_v}", min_value=0, disabled=(ronda_v != st.session_state.ronda_actual))
-                    st.markdown(f"<center><b>Mesa {i+1}</b></center>", unsafe_allow_html=True)
-                    st.number_input("Pts", key=f"p_der_{i}_{ronda_v}", min_value=0, disabled=(ronda_v != st.session_state.ronda_actual))
+                with c2:
+                    # Si es una ronda pasada, mostramos los puntos que se guardaron
+                    if ronda_v < st.session_state.ronda_actual:
+                        pts_h = datos_r.get('resultados', {}).get(i, {'izq': 0, 'der': 0})
+                        st.markdown(f"<h3 style='text-align:center;'>{pts_h['izq']}</h3>", unsafe_allow_html=True)
+                        st.markdown(f"<center><b>Mesa {i+1}</b></center>", unsafe_allow_html=True)
+                        st.markdown(f"<h3 style='text-align:center;'>{pts_h['der']}</h3>", unsafe_allow_html=True)
+                    else:
+                        st.number_input("Pts", key=f"p_izq_{i}_{ronda_v}", min_value=0)
+                        st.markdown(f"<center><b>Mesa {i+1}</b></center>", unsafe_allow_html=True)
+                        st.number_input("Pts", key=f"p_der_{i}_{ronda_v}", min_value=0)
                 with c3: st.success(f"{m[1]} y {m[3]}")
             if datos_r['reposo']: st.warning(f"💤 **REPOSO:** {', '.join(datos_r['reposo'])}")
+        
         if st.session_state.ronda_actual == ronda_v:
             if st.button(f"💾 Registrar Ronda {st.session_state.ronda_actual}"): finalizar_ronda()
     else:
