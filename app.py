@@ -2,30 +2,27 @@ import streamlit as st
 import math
 import random
 import time
-import json
 from datetime import datetime, timedelta
 
-# --- CONFIGURACIÓN Y ESTADO ---
+# --- 1. CONFIGURACIÓN Y ESTADO (BLOQUE SÓLIDO) ---
 st.set_page_config(layout="wide", page_title="ADEL - Franz Lameda")
 
-# Inicialización de variables de estado
-if 'asistentes' not in st.session_state: st.session_state.asistentes = []
-if 'juegos_ganados' not in st.session_state: st.session_state.juegos_ganados = {}
-if 'puntos_favor' not in st.session_state: st.session_state.puntos_favor = {}
-if 'puntos_contra' not in st.session_state: st.session_state.puntos_contra = {}
-if 'efectividad' not in st.session_state: st.session_state.efectividad = {}
-if 'jugadores_reposo_previos' not in st.session_state: st.session_state.jugadores_reposo_previos = []
-if 'mesas_actuales' not in st.session_state: st.session_state.mesas_actuales = []
-if 'jugadores_pausa' not in st.session_state: st.session_state.jugadores_pausa = []
-if 'parejas_previas' not in st.session_state: st.session_state.parejas_previas = []
-if 'historial_mesas' not in st.session_state: st.session_state.historial_mesas = []
+# Inicialización de variables para que el sistema nunca nazca vacío
+keys = ['asistentes', 'juegos_ganados', 'puntos_favor', 'puntos_contra', 
+        'efectividad', 'jugadores_reposo_previos', 'mesas_actuales', 
+        'jugadores_pausa', 'parejas_previas', 'historial_mesas']
+
+for key in keys:
+    if key not in st.session_state:
+        st.session_state[key] = [] if any(x in key for x in ['previos', 'mesas', 'pausa', 'parejas', 'asistentes', 'historial']) else {}
+
 if 'ronda_actual' not in st.session_state: st.session_state.ronda_actual = 1
 if 'registro_abierto' not in st.session_state: st.session_state.registro_abierto = True
 if 'torneo_finalizado' not in st.session_state: st.session_state.torneo_finalizado = False
 if 'fin_tiempo' not in st.session_state: st.session_state.fin_tiempo = None
 if 'cronometro_activo' not in st.session_state: st.session_state.cronometro_activo = False
 
-# --- FUNCIONES DE GESTIÓN ---
+# --- 2. FUNCIONES DE LOGICA ---
 def agregar_jugador_enter():
     nombre = st.session_state.nuevo_nombre.strip().upper()
     if nombre and nombre not in st.session_state.asistentes:
@@ -78,10 +75,8 @@ def generar_ronda_suiza():
         mesas_generadas.append([a, b, c, d])
     st.session_state.mesas_actuales = mesas_generadas
     st.session_state.historial_mesas.append({
-        'ronda': st.session_state.ronda_actual, 
-        'mesas': mesas_generadas, 
-        'reposo': reposados_hoy.copy(),
-        'resultados': {}
+        'ronda': st.session_state.ronda_actual, 'mesas': mesas_generadas, 
+        'reposo': reposados_hoy.copy(), 'resultados': {}
     })
 
 def finalizar_ronda():
@@ -103,15 +98,13 @@ def finalizar_ronda():
         st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
         st.session_state.efectividad[r] = st.session_state.efectividad.get(r, 0) + (meta // 2)
     st.session_state.fin_tiempo = None; st.session_state.cronometro_activo = False
-    if st.session_state.ronda_actual >= math.ceil(math.log2(len(st.session_state.asistentes))):
-        st.session_state.torneo_finalizado = True
+    if st.session_state.ronda_actual >= math.ceil(math.log2(len(st.session_state.asistentes))): st.session_state.torneo_finalizado = True
     else: st.session_state.ronda_actual += 1; generar_ronda_suiza()
     st.rerun()
 
-# --- INTERFAZ ---
+# --- 3. INTERFAZ ---
 st.title("🏆 Gala de los 13 - Franz Lameda (Asociación de Dominó del Estado Lara ADEL)")
 
-# BARRA LATERAL (Sidebar)
 with st.sidebar:
     if not st.session_state.registro_abierto:
         st.header("⏱️ Reloj de Ronda")
@@ -136,12 +129,9 @@ with st.sidebar:
             else:
                 st.markdown('<div style="background-color:#F44336;padding:20px;border-radius:10px;text-align:center;"><h2 style="color:white;margin:0;">🛑 TIEMPO VENCIDO</h2></div>', unsafe_allow_html=True)
                 st.session_state.cronometro_activo = False
-    
-    # FIRMA DEL POETA (Letras pequeñas al final de la barra lateral)
     st.markdown("---")
     st.caption("Creado por Poeta")
 
-# CUERPO PRINCIPAL
 if st.session_state.registro_abierto:
     st.subheader("📝 Registro de Atletas")
     st.session_state.meta_puntos = st.radio("Meta:", [100, 200], horizontal=True)
@@ -164,10 +154,24 @@ else:
             with st.expander("📊 RANKING ACTUAL"):
                 rk = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados.get(x,0), st.session_state.efectividad.get(x,0), -st.session_state.puntos_contra.get(x,0)), reverse=True)
                 st.table([{"Pos": i+1, "Jugador": j, "G": st.session_state.juegos_ganados.get(j, 0), "Ef": st.session_state.efectividad.get(j, 0)} for i, j in enumerate(rk)])
-
         datos_r = next((it for it in st.session_state.historial_mesas if it['ronda'] == ronda_v), None)
         if datos_r:
             for i, m in enumerate(datos_r['mesas']):
                 c1, c2, c3 = st.columns([2, 1, 2])
                 with c1: st.info(f"{m[0]} y {m[2]}")
-                with
+                with c2:
+                    if ronda_v < st.session_state.ronda_actual:
+                        pts_h = datos_r.get('resultados', {}).get(i, {'izq': 0, 'der': 0})
+                        st.markdown(f"<h3 style='text-align:center;'>{pts_h['izq']}</h3><center><b>Mesa {i+1}</b></center><h3 style='text-align:center;'>{pts_h['der']}</h3>", unsafe_allow_html=True)
+                    else:
+                        st.number_input("Pts", key=f"p_izq_{i}_{ronda_v}", min_value=0)
+                        st.markdown(f"<center><b>Mesa {i+1}</b></center>", unsafe_allow_html=True)
+                        st.number_input("Pts", key=f"p_der_{i}_{ronda_v}", min_value=0)
+                with c3: st.success(f"{m[1]} y {m[3]}")
+            if datos_r['reposo']: st.warning(f"💤 **REPOSO:** {', '.join(datos_r['reposo'])}")
+        if st.session_state.ronda_actual == ronda_v:
+            if st.button(f"💾 Registrar Ronda {st.session_state.ronda_actual}"): finalizar_ronda()
+    else:
+        st.header("🥇 POSICIONES FINALES")
+        rk_f = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados.get(x,0), st.session_state.efectividad.get(x,0), -st.session_state.puntos_contra.get(x,0)), reverse=True)
+        st.table([{"Pos": i+1, "Jugador": j, "G": st.session_state.juegos_ganados.get(j, 0), "Ef": st.session_state.efectividad.get(j, 0)} for i, j in enumerate(rk_f)])
