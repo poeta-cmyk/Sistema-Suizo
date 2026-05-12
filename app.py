@@ -4,10 +4,10 @@ import random
 import time
 from datetime import datetime, timedelta
 
-# --- 1. CONFIGURACIÓN Y ESTADO (BLOQUE SÓLIDO) ---
-st.set_page_config(layout="wide", page_title="ADEL - Franz Lameda")
+# --- 1. CONFIGURACIÓN Y ESTADO ---
+st.set_page_config(layout="wide", page_title="ADEL - Sistema de Torneo")
 
-# Inicialización de variables para que el sistema nunca nazca vacío
+# Inicialización de variables de estado
 keys = ['asistentes', 'juegos_ganados', 'puntos_favor', 'puntos_contra', 
         'efectividad', 'jugadores_reposo_previos', 'mesas_actuales', 
         'jugadores_pausa', 'parejas_previas', 'historial_mesas']
@@ -22,7 +22,7 @@ if 'torneo_finalizado' not in st.session_state: st.session_state.torneo_finaliza
 if 'fin_tiempo' not in st.session_state: st.session_state.fin_tiempo = None
 if 'cronometro_activo' not in st.session_state: st.session_state.cronometro_activo = False
 
-# --- 2. FUNCIONES DE LOGICA ---
+# --- 2. FUNCIONES DE LÓGICA ---
 def agregar_jugador_enter():
     nombre = st.session_state.nuevo_nombre.strip().upper()
     if nombre and nombre not in st.session_state.asistentes:
@@ -103,7 +103,7 @@ def finalizar_ronda():
     st.rerun()
 
 # --- 3. INTERFAZ ---
-st.title("🏆 Gala de los 13 - Franz Lameda (Asociación de Dominó del Estado Lara ADEL)")
+st.title("Asociación de Dominó del Estado Lara (ADEL)")
 
 with st.sidebar:
     if not st.session_state.registro_abierto:
