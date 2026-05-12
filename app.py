@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # --- 1. CONFIGURACIÓN Y ESTADO ---
 st.set_page_config(layout="wide", page_title="ADEL - Sistema de Torneo")
 
-# Inicialización de variables de estado
+# Inicialización de variables de estado (Blindaje contra errores de carga)
 keys = ['asistentes', 'juegos_ganados', 'puntos_favor', 'puntos_contra', 
         'efectividad', 'jugadores_reposo_previos', 'mesas_actuales', 
         'jugadores_pausa', 'parejas_previas', 'historial_mesas']
@@ -103,6 +103,7 @@ def finalizar_ronda():
     st.rerun()
 
 # --- 3. INTERFAZ ---
+# Título Institucional Único
 st.title("Asociación de Dominó del Estado Lara (ADEL)")
 
 with st.sidebar:
@@ -130,6 +131,7 @@ with st.sidebar:
                 st.markdown('<div style="background-color:#F44336;padding:20px;border-radius:10px;text-align:center;"><h2 style="color:white;margin:0;">🛑 TIEMPO VENCIDO</h2></div>', unsafe_allow_html=True)
                 st.session_state.cronometro_activo = False
     st.markdown("---")
+    # Sello de Autoría
     st.caption("Creado por Poeta")
 
 if st.session_state.registro_abierto:
@@ -154,6 +156,7 @@ else:
             with st.expander("📊 RANKING ACTUAL"):
                 rk = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados.get(x,0), st.session_state.efectividad.get(x,0), -st.session_state.puntos_contra.get(x,0)), reverse=True)
                 st.table([{"Pos": i+1, "Jugador": j, "G": st.session_state.juegos_ganados.get(j, 0), "Ef": st.session_state.efectividad.get(j, 0)} for i, j in enumerate(rk)])
+        
         datos_r = next((it for it in st.session_state.historial_mesas if it['ronda'] == ronda_v), None)
         if datos_r:
             for i, m in enumerate(datos_r['mesas']):
