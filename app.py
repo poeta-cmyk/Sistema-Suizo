@@ -4,14 +4,20 @@ import random
 import time
 from datetime import datetime, timedelta
 
-# --- CONFIGURACIÓN Y ESTADO (RESTAURADO A ESTADO SÓLIDO) ---
+# 1. Configuración Inicial (Siempre al principio)
 st.set_page_config(layout="wide", page_title="Sistema Suizo Pro - Franz Lameda")
 
-for key in ['asistentes', 'juegos_ganados', 'puntos_favor', 'puntos_contra', 
-            'efectividad', 'jugadores_reposo_previos', 'mesas_actuales', 
-            'jugadores_pausa', 'parejas_previas', 'historial_mesas']:
+# 2. Inicialización del Estado (Asegura que nada nazca vacío)
+keys_list = ['asistentes', 'juegos_ganados', 'puntos_favor', 'puntos_contra', 
+             'efectividad', 'jugadores_reposo_previos', 'mesas_actuales', 
+             'jugadores_pausa', 'parejas_previas', 'historial_mesas']
+
+for key in keys_list:
     if key not in st.session_state:
-        st.session_state[key] = [] if any(x in key for x in ['previos', 'mesas', 'pausa', 'parejas', 'asistentes', 'historial']) else {}
+        if any(x in key for x in ['previos', 'mesas', 'pausa', 'parejas', 'asistentes', 'historial']):
+            st.session_state[key] = []
+        else:
+            st.session_state[key] = {}
 
 if 'ronda_actual' not in st.session_state: st.session_state.ronda_actual = 1
 if 'registro_abierto' not in st.session_state: st.session_state.registro_abierto = True
@@ -20,83 +26,89 @@ if 'lanzar_globos' not in st.session_state: st.session_state.lanzar_globos = Fal
 if 'fin_tiempo' not in st.session_state: st.session_state.fin_tiempo = None
 if 'cronometro_activo' not in st.session_state: st.session_state.cronometro_activo = False
 
-# --- FUNCIONES CORE (RESTAURADAS) ---
-def agregar_jugador_enter():
+# 3. Funciones de Gestión
+def agregar_jugador():
     nombre = st.session_state.nuevo_nombre.strip().upper()
     if nombre and nombre not in st.session_state.asistentes:
         st.session_state.asistentes.append(nombre)
         st.session_state.asistentes.sort()
-    st.session_state.nuevo_nombre = "" 
+    st.session_state.nuevo_nombre = ""
 
 @st.dialog("Editar Atleta")
-def editar_atleta_dialog(nombre_viejo):
-    nuevo_nombre = st.text_input("Corregir nombre de Atleta:", value=nombre_viejo).strip().upper()
-    if st.button("✅ GUARDAR CAMBIO"):
-        if nuevo_nombre and nuevo_nombre != nombre_viejo:
+def editar_atleta(nombre_viejo):
+    nuevo = st.text_input("Nuevo nombre:", value=nombre_viejo).strip().upper()
+    if st.button("GUARDAR"):
+        if nuevo and nuevo != nombre_viejo:
             idx = st.session_state.asistentes.index(nombre_viejo)
-            st.session_state.asistentes[idx] = nuevo_nombre
-            st.session_state.asistentes.sort()
-            for dict_stat in [st.session_state.juegos_ganados, st.session_state.puntos_favor, 
-                             st.session_state.puntos_contra, st.session_state.efectividad]:
-                if nombre_viejo in dict_stat:
-                    dict_stat[nuevo_nombre] = dict_stat.pop(nombre_viejo)
+            st.session_state.asistentes[idx] = nuevo
             st.rerun()
 
-def generar_ronda_suiza():
+def generar_ronda():
     jugadores = sorted(st.session_state.asistentes, 
                       key=lambda x: (st.session_state.juegos_ganados.get(x, 0), 
-                                     st.session_state.efectividad.get(x, 0), 
-                                     -st.session_state.puntos_contra.get(x, 0)), 
-                      reverse=True)
+                                     st.session_state.efectividad.get(x, 0)), reverse=True)
     if st.session_state.ronda_actual == 1: random.shuffle(jugadores)
+    
     n_reposo = len(jugadores) % 4
-    reposados_hoy = []
+    reposo = []
     if n_reposo > 0:
         candidatos = [j for j in reversed(jugadores) if j not in st.session_state.jugadores_reposo_previos]
-        if not candidatos:
-            st.session_state.jugadores_reposo_previos = []
-            candidatos = list(reversed(jugadores))
-        reposados_hoy = candidatos[:n_reposo]
-        for r in reposados_hoy:
+        if not candidatos: candidatos = list(reversed(jugadores))
+        reposo = candidatos[:n_reposo]
+        for r in reposo:
             jugadores.remove(r)
             st.session_state.jugadores_reposo_previos.append(r)
-    st.session_state.jugadores_pausa = reposados_hoy
-    n_mesas = len(jugadores) // 4
-    mesas_generadas = []
-    disponibles = jugadores.copy()
-    for _ in range(n_mesas):
-        a = disponibles.pop(0); c_idx = next((i for i, cand in enumerate(disponibles) if {a, cand} not in st.session_state.parejas_previas), 0)
-        c = disponibles.pop(c_idx); st.session_state.parejas_previas.append({a, c})
-        b = disponibles.pop(0); d_idx = next((i for i, cand in enumerate(disponibles) if {b, cand} not in st.session_state.parejas_previas), 0)
-        d = disponibles.pop(d_idx); st.session_state.parejas_previas.append({b, d})
-        mesas_generadas.append([a, b, c, d])
-    st.session_state.mesas_actuales = mesas_generadas
-    st.session_state.historial_mesas.append({'ronda': st.session_state.ronda_actual, 'mesas': mesas_generadas, 'reposo': reposados_hoy.copy()})
+    
+    st.session_state.jugadores_pausa = reposo
+    mesas = []
+    temp = jugadores.copy()
+    while len(temp) >= 4:
+        m = [temp.pop(0), temp.pop(0), temp.pop(0), temp.pop(0)]
+        mesas.append(m)
+    
+    st.session_state.mesas_actuales = mesas
+    st.session_state.historial_mesas.append({
+        'ronda': st.session_state.ronda_actual, 
+        'mesas': mesas, 
+        'reposo': reposo
+    })
 
-def finalizar_ronda():
-    meta = st.session_state.meta_puntos
-    for i, m in enumerate(st.session_state.mesas_actuales):
-        p_izq = st.session_state.get(f"p_izq_{i}_{st.session_state.ronda_actual}", 0)
-        p_der = st.session_state.get(f"p_der_{i}_{st.session_state.ronda_actual}", 0)
-        ef_izq = (p_izq - meta) if p_izq < p_der else (meta - p_der)
-        ef_der = (p_der - meta) if p_der < p_izq else (meta - p_izq)
-        for p, pf, pc, ef in [(m[0], p_izq, p_der, ef_izq), (m[2], p_izq, p_der, ef_izq), 
-                              (m[1], p_der, p_izq, ef_der), (m[3], p_der, p_izq, ef_der)]:
-            st.session_state.puntos_favor[p] = st.session_state.puntos_favor.get(p, 0) + pf
-            st.session_state.puntos_contra[p] = st.session_state.puntos_contra.get(p, 0) + pc
-            st.session_state.efectividad[p] = st.session_state.efectividad.get(p, 0) + ef
-            if pf > pc: st.session_state.juegos_ganados[p] = st.session_state.juegos_ganados.get(p, 0) + 1
-    beneficio_reposo = meta // 2
-    for r in st.session_state.jugadores_pausa:
-        st.session_state.juegos_ganados[r] = st.session_state.juegos_ganados.get(r, 0) + 1
-        st.session_state.efectividad[r] = st.session_state.efectividad.get(r, 0) + beneficio_reposo
-    st.session_state.lanzar_globos = True
-    st.session_state.fin_tiempo = None 
-    st.session_state.cronometro_activo = False
-    if st.session_state.ronda_actual >= math.ceil(math.log2(len(st.session_state.asistentes))): st.session_state.torneo_finalizado = True
-    else:
+# 4. Interfaz Principal
+st.title("🏆 Sistema Suizo Pro - El Poeta Franz Lameda")
+
+if st.session_state.registro_abierto:
+    st.session_state.meta_puntos = st.radio("Meta:", [100, 200], horizontal=True)
+    st.text_input("Nombre del Atleta:", key="nuevo_nombre", on_change=agregar_jugador)
+    
+    if st.session_state.asistentes:
+        st.write(f"Inscritos: {len(st.session_state.asistentes)}")
+        sel = st.selectbox("Gestionar:", st.session_state.asistentes)
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("✏️ Editar"): editar_atleta(sel)
+        with c2:
+            if st.button("🗑️ Eliminar"): 
+                st.session_state.asistentes.remove(sel)
+                st.rerun()
+        
+        if st.button("🚀 INICIAR TORNEO") and len(st.session_state.asistentes) >= 4:
+            st.session_state.registro_abierto = False
+            generar_ronda()
+            st.rerun()
+else:
+    # Lógica de Torneo (Mesas y Ranking)
+    st.write(f"### Ronda Actual: {st.session_state.ronda_actual}")
+    
+    # Mostrar Mesas
+    for i, mesa in enumerate(st.session_state.mesas_actuales):
+        st.write(f"**Mesa {i+1}**")
+        st.write(f"{mesa[0]} y {mesa[2]} VS {mesa[1]} y {mesa[3]}")
+    
+    if st.button("Finalizar Ronda"):
         st.session_state.ronda_actual += 1
-        generar_ronda_suiza()
-    st.rerun()
+        generar_ronda()
+        st.rerun()
 
-# --- INTERFAZ ---
+    if st.button("Reiniciar Todo"):
+        st.session_state.clear()
+        st.rerun()
