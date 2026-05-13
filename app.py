@@ -41,35 +41,35 @@ def generar_ronda():
     cant_mesas = len(rk) // 4
     activos = rk[:cant_mesas * 4]
     reposo = rk[cant_mesas * 4:]
-    # Corrección del error de la imagen 6578d9: cierre de corchetes correcto
+    # Corchete cerrado correctamente para evitar SyntaxError
     mesas = [activos[i:i+4] for i in range(0, len(activos), 4)]
     st.session_state.historial_completo.append({
         'ronda': st.session_state.ronda_actual, 'mesas': mesas, 'reposo': reposo
     })
     st.session_state.registro_abierto = False
 
-# --- 3. NAVEGACIÓN ---
+# --- 3. NAVEGACIÓN RECTIFICADA ---
 with st.sidebar:
     st.title("🏆 MENÚ ADEL")
-    # Navegación corregida para evitar inversión
-    pagina = st.radio("Sección:", ["🎮 MESAS", "📺 PANTALLA ADEL"])
+    # Aseguramos que el nombre de la opción sea el que controla la lógica
+    opcion = st.radio("Sección:", ["MESAS", "PANTALLA ADEL"])
 
-# --- SECCIÓN: MESAS ---
-if pagina == "🎮 MESAS":
-    st.header("ADEL - Control de Torneo y Justicia") #
+# --- SECCIÓN: MESAS (CONTROL TÉCNICO) ---
+if opcion == "MESAS": # Vinculación directa con la gestión
+    st.header("ADEL - Control de Torneo y Justicia")
     if st.session_state.registro_abierto:
         st.subheader("Registro de Atletas")
         st.text_input("Nombre del Atleta + ENTER:", key="nuevo_atleta", on_change=registrar_atleta)
         if st.session_state.asistentes:
-            st.markdown(f"**Inscritos: {len(st.session_state.asistentes)}**") #
+            st.markdown(f"**Inscritos: {len(st.session_state.asistentes)}**")
             if st.button("🚀 INICIAR TORNEO"):
                 generar_ronda(); st.rerun()
     else:
         tab1, tab2 = st.tabs(["📝 RESULTADOS", "📊 BAREMO Y TARJETAS"])
         r_data = st.session_state.historial_completo[-1]
         with tab1:
-            st.subheader(f"Carga de Puntos - Ronda {r_data['ronda']} (de {st.session_state.total_rondas})") #
-            if r_data['reposo']: st.warning(f"Atletas en Reposo: {', '.join(r_data['reposo'])}") #
+            st.subheader(f"Carga de Puntos - Ronda {r_data['ronda']} (de {st.session_state.total_rondas})")
+            if r_data['reposo']: st.warning(f"Atletas en Reposo: {', '.join(r_data['reposo'])}")
             for i, m in enumerate(r_data['mesas']):
                 with st.container(border=True):
                     st.write(f"**MESA {i+1}**")
@@ -87,14 +87,13 @@ if pagina == "🎮 MESAS":
                 c[3].write(f"{st.session_state.efectividad[n]:.3f}"); c[4].write(st.session_state.puntos_contra[n])
                 st.session_state.tarjetas[n] = c[5].selectbox("Sanción", ["NINGUNA", "AMARILLA 🟨", "ROJA 🟥", "NEGRA ⬛"], key=f"tj_{n}", label_visibility="collapsed")
 
-# --- SECCIÓN: PANTALLA ADEL ---
-elif pagina == "📺 PANTALLA ADEL":
-    st.header("Monitor Oficial ADEL") #
+# --- SECCIÓN: PANTALLA ADEL (MONITOR PÚBLICO) ---
+elif opcion == "PANTALLA ADEL": # Vinculación directa con la visualización
+    st.header("Monitor Oficial ADEL")
     if st.session_state.historial_completo:
         r_data = st.session_state.historial_completo[-1]
         st.subheader(f"Ronda {r_data['ronda']} (de {st.session_state.total_rondas})")
         if r_data['reposo']: st.error(f"⌛ ATLETAS EN REPOSO: {', '.join(r_data['reposo'])}")
-        # Organización de 4 mesas por fila
         filas = [r_data['mesas'][i:i + 4] for i in range(0, len(r_data['mesas']), 4)]
         for f_idx, fila in enumerate(filas):
             cols = st.columns(4)
