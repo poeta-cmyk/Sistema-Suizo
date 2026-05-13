@@ -1,5 +1,6 @@
 import streamlit as st
 import math
+import random
 
 # --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
@@ -29,7 +30,7 @@ with st.sidebar:
     st.title("🏆 MENÚ ADEL")
     opcion = st.radio("SECCIÓN:", ["INSCRIPCIÓN", "MESAS", "RESULTADOS", "RANKING"])
 
-# --- 4. SECCIÓN: INSCRIPCIÓN (SU BASE DATOS BLINDADA) ---
+# --- 4. SECCIÓN: INSCRIPCIÓN ---
 if opcion == "INSCRIPCIÓN":
     st.caption("Creado por Poeta")
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
@@ -49,8 +50,9 @@ if opcion == "INSCRIPCIÓN":
             elif texto not in st.session_state.asistentes:
                 st.session_state.asistentes.append(texto)
                 st.session_state.estados[texto] = True
-                for k in ['juegos_ganados', 'puntos_contra', 'puntos_favor']: 
-                    st.session_state[k][texto] = 0
+                st.session_state.juegos_ganados[texto] = 0
+                st.session_state.puntos_contra[texto] = 0
+                st.session_state.puntos_favor[texto] = 0
                 st.session_state.efectividad[texto] = 1.0
             st.session_state.asistentes.sort()
         st.session_state.campo_input = "" 
@@ -71,84 +73,101 @@ if opcion == "INSCRIPCIÓN":
             if c_del.button("🗑️", key=f"br_{n}"):
                 st.session_state.asistentes.remove(n); st.rerun()
 
-# --- 5. SECCIÓN: RESULTADOS (AQUÍ ES DONDE ANOTA) ---
+# --- 5. SECCIÓN: RESULTADOS (LA MESA TÉCNICA) ---
 elif opcion == "RESULTADOS":
     st.caption("Creado por Poeta")
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
     st.subheader("Carga de Resultados Técnicos")
     
-    jugadores_activos = [n for n in st.session_state.asistentes if st.session_state.estados[n]]
+    activos = [n for n in st.session_state.asistentes if st.session_state.estados[n]]
     
     if st.button("🚀 SORTEAR SIGUIENTE RONDA"):
-        if len(jugadores_activos) < 4:
-            st.error("Se necesitan al menos 4 atletas activos para sortear.")
+        if len(activos) < 4:
+            st.error("Se necesitan al menos 4 atletas activos.")
         else:
-            import random
-            random.shuffle(jugadores_activos)
-            n_jug = (len(jugadores_activos) // 4) * 4
-            mesas = [jugadores_activos[i:i+4] for i in range(0, n_jug, 4)]
-            # Guardamos la ronda con espacios vacíos para puntos
+            random.shuffle(activos)
+            n_jug = (len(activos) // 4) * 4
+            mesas = [activos[i:i+4] for i in range(0, n_jug, 4)]
             st.session_state.historial_completo.append({
                 'ronda': len(st.session_state.historial_completo) + 1, 
                 'mesas': mesas, 
-                'reposo': jugadores_activos[n_jug:],
-                'puntos': {} # Aquí se guardarán los resultados
+                'reposo': activos[n_jug:],
+                'procesadas': [] 
             })
             st.rerun()
 
     if st.session_state.historial_completo:
-        r_actual = st.session_state.historial_completo[-1]
-        st.write(f"## RONDA {r_actual['ronda']}")
+        r = st.session_state.historial_completo[-1]
+        st.write(f"## RONDA {r['ronda']}")
         
-        for idx, mj in enumerate(r_actual['mesas']):
-            with st.expander(f"MESA {idx+1}", expanded=True):
-                c1, c2, c3 = st.columns([2, 1, 2])
-                
-                # Pareja A+C
-                p1 = f"{mj[0]} y {mj[2]}"
-                val1 = st.number_input(f"Puntos {p1}", min_value=0, max_value=100, key=f"r{r_actual['ronda']}m{idx}p1")
-                
-                # Pareja B+D
-                p2 = f"{mj[1]} y {mj[3]}"
-                val2 = st.number_input(f"Puntos {p2}", min_value=0, max_value=100, key=f"r{r_actual['ronda']}m{idx}p2")
-                
-                if st.button(f"GUARDAR MESA {idx+1}", key=f"btn_m{idx}"):
-                    # Lógica para procesar y enviar al Ranking
-                    for j en [mj[0], mj[2]]: 
-                        st.session_state.puntos_favor[j] += val1
-                        st.session_state.puntos_contra[j] += val2
-                    for j en [mj[1], mj[3]]: 
-                        st.session_state.puntos_favor[j] += val2
-                        st.session_state.puntos_contra[j] += val1
-                    
-                    if val1 > val2:
-                        for j en [mj[0], mj[2]]: st.session_state.juegos_ganados[j] += 1
-                    elif val2 > val1:
-                        for j en [mj[1], mj[3]]: st.session_state.juegos_ganados[j] += 1
-                    
-                    for j en mj: recalcular_baremo(j)
-                    st.success(f"Mesa {idx+1} procesada.")
+        for idx, mj in enumerate(r['mesas']):
+            # Si la mesa ya fue guardada, no mostramos los controles de entrada
+            if idx in r['procesadas']:
+                st.success(f"MESA {idx+1}: RESULTADO REGISTRADO")
+                continue
 
-# --- 6. SECCIÓN: MESAS (VISTA PÚBLICA) ---
+            with st.container(border=True):
+                st.write(f"### MESA {idx+1}")
+                c1, c2 = st.columns(2)
+                
+                # Pareja A+C vs Pareja B+D
+                puntos_ac = c1.number_input(f"Puntos {mj[0]} y {mj[2]} (A+C):", min_value=0, max_value=100, key=f"ac_{r['ronda']}_{idx}")
+                puntos_bd = c2.number_input(f"Puntos {mj[1]} y {mj[3]} (B+D):", min_value=0, max_value=100, key=f"bd_{r['ronda']}_{idx}")
+                
+                if st.button(f"GUARDAR MESA {idx+1}", key=f"btn_{r['ronda']}_{idx}"):
+                    # Sumar puntos y juegos ganados
+                    for j in [mj[0], mj[2]]:
+                        st.session_state.puntos_favor[j] += puntos_ac
+                        st.session_state.puntos_contra[j] += puntos_bd
+                        if puntos_ac > puntos_bd: st.session_state.juegos_ganados[j] += 1
+                    
+                    for j in [mj[1], mj[3]]:
+                        st.session_state.puntos_favor[j] += puntos_bd
+                        st.session_state.puntos_contra[j] += puntos_ac
+                        if puntos_bd > puntos_ac: st.session_state.juegos_ganados[j] += 1
+                    
+                    # Recalcular baremo de todos en la mesa
+                    for j in mj: recalcular_baremo(j)
+                    
+                    r['procesadas'].append(idx)
+                    st.rerun()
+
+# --- 6. SECCIÓN: MESAS (PANTALLA PÚBLICA) ---
 elif opcion == "MESAS":
     st.caption("Creado por Poeta")
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
-    if not st.session_state.historial_completo:
-        st.info("No hay mesas activas. Vaya a RESULTADOS para sortear.")
-    else:
+    st.subheader("Distribución de Mesas")
+    if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
+        if r['reposo']: st.warning(f"⌛ EN REPOSO: {', '.join(r['reposo'])}")
         for idx, mj in enumerate(r['mesas']):
-            st.subheader(f"MESA {idx+1}")
-            st.write(f"Silla A: {mj[0]} | Silla C: {mj[2]}")
-            st.write(f"VS")
-            st.write(f"Silla B: {mj[1]} | Silla D: {mj[3]}")
-            st.divider()
+            with st.container(border=True):
+                st.write(f"**MESA {idx+1}**")
+                st.write(f"Pareja 1 (A+C): {mj[0]} y {mj[2]}")
+                st.write(f"Pareja 2 (B+D): {mj[1]} y {mj[3]}")
+    else:
+        st.info("No hay sorteo activo.")
 
 # --- 7. SECCIÓN: RANKING ---
 elif opcion == "RANKING":
     st.caption("Creado por Poeta")
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
-    st.subheader("Clasificación")
+    st.subheader("Clasificación Oficial")
     if st.session_state.asistentes:
-        # Aquí se mostrará la tabla con los puntos acumulados
-        st.write(st.session_state.juegos_ganados)
+        # Ordenar por Juegos Ganados y luego por Efectividad
+        tabla = sorted(st.session_state.asistentes, 
+                       key=lambda x: (st.session_state.juegos_ganados[x], st.session_state.efectividad[x]), 
+                       reverse=True)
+        
+        cols = st.columns([1, 3, 1, 1, 1, 2])
+        headers = ["Pos", "Atleta", "JJ", "PF", "PC", "Efectividad"]
+        for col, h in zip(cols, headers): col.bold(h)
+        
+        for i, nom in enumerate(tabla):
+            c = st.columns([1, 3, 1, 1, 1, 2])
+            c[0].text(i+1)
+            c[1].text(nom)
+            c[2].text(st.session_state.juegos_ganados[nom])
+            c[3].text(st.session_state.puntos_favor[nom])
+            c[4].text(st.session_state.puntos_contra[nom])
+            c[5].text(f"{st.session_state.efectividad[nom]:.4f}")
