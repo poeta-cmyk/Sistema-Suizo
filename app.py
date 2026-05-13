@@ -30,7 +30,6 @@ def generar_ronda():
     activos = rk_merito[:]
     mesas = []
     while len(activos) >= 4:
-        # Estructura: [Norte(A), Sur(B), Este(C), Oeste(D)]
         mesas.append([activos.pop(0), activos.pop(0), activos.pop(0), activos.pop(0)])
     
     st.session_state.historial_completo.append({
@@ -72,14 +71,8 @@ if pagina == "🎮 MESA TÉCNICA":
                 with st.container(border=True):
                     st.write(f"**MESA {i+1}**")
                     c1, c2 = st.columns(2)
-                    # Nomenclatura solicitada: A) Nombre C) Nombre
-                    with c1: 
-                        st.number_input(f"A) {m[0]} --- C) {m[2]}", 
-                                        key=f"pAC_m{i}", min_value=0, step=1)
-                    # Nomenclatura solicitada: B) Nombre D) Nombre
-                    with c2: 
-                        st.number_input(f"B) {m[1]} --- D) {m[3]}", 
-                                        key=f"pBD_m{i}", min_value=0, step=1)
+                    with c1: st.number_input(f"A) {m[0]} --- C) {m[2]}", key=f"pAC_m{i}", min_value=0)
+                    with c2: st.number_input(f"B) {m[1]} --- D) {m[3]}", key=f"pBD_m{i}", min_value=0)
 
         with tab2:
             st.subheader("Baremo Oficial")
@@ -103,24 +96,27 @@ if pagina == "🎮 MESA TÉCNICA":
                     key=f"tj_{n}", label_visibility="collapsed"
                 )
 
-# --- PÁGINA: PANTALLA ADEL ---
+# --- PÁGINA: PANTALLA ADEL (ACTUALIZADA A 4 COLUMNAS) ---
 elif pagina == "📺 PANTALLA ADEL":
     st.header("Monitor Oficial ADEL")
     if not st.session_state.historial_completo:
         st.warning("Inicie el torneo en la Mesa Técnica.")
     else:
         r_data = st.session_state.historial_completo[-1]
-        cols = st.columns(2)
-        for i, m in enumerate(r_data['mesas']):
-            with cols[i % 2]:
-                with st.container(border=True):
-                    # El nombre superior es el Atleta A
-                    st.markdown(f"<div style='text-align:center; font-weight:bold;'>A) {m[0]}</div>", unsafe_allow_html=True)
-                    cl, cm, cr = st.columns([1,1,1])
-                    # Lateral izquierdo: B
-                    cl.markdown(f"<div style='text-align:right; margin-top:15px;'>B) {m[1]}</div>", unsafe_allow_html=True)
-                    cm.markdown(f"<div style='text-align:center; font-size:1.5em; color:#FF4B4B; font-weight:bold; margin-top:5px;'>MESA {i+1}</div>", unsafe_allow_html=True)
-                    # Lateral derecho: D
-                    cr.markdown(f"<div style='text-align:left; margin-top:15px;'>D) {m[3]}</div>", unsafe_allow_html=True)
-                    # Inferior: C (Pareja de A)
-                    st.markdown(f"<div style='text-align:center; font-weight:bold;'>C) {m[2]}</div>", unsafe_allow_html=True)
+        
+        # Petición del Poeta: 4 mesas por fila
+        filas_mesas = [r_data['mesas'][i:i + 4] for i in range(0, len(r_data['mesas']), 4)]
+        
+        for fila_idx, fila in enumerate(filas_mesas):
+            cols = st.columns(4) # Crea 4 columnas por fila
+            for i, m in enumerate(fila):
+                num_mesa = (fila_idx * 4) + i + 1
+                with cols[i]:
+                    with st.container(border=True):
+                        # Diseño compacto en cruz con identificador de mesa central
+                        st.markdown(f"<div style='text-align:center; font-size:0.9em; font-weight:bold;'>A) {m[0]}</div>", unsafe_allow_html=True)
+                        cl, cm, cr = st.columns([1.2, 1, 1.2])
+                        cl.markdown(f"<div style='text-align:right; font-size:0.8em; margin-top:10px;'>B) {m[1]}</div>", unsafe_allow_html=True)
+                        cm.markdown(f"<div style='text-align:center; font-size:1.1em; color:#FF4B4B; font-weight:bold; margin-top:5px;'>MESA {num_mesa}</div>", unsafe_allow_html=True)
+                        cr.markdown(f"<div style='text-align:left; font-size:0.8em; margin-top:10px;'>D) {m[3]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align:center; font-size:0.9em; font-weight:bold;'>C) {m[2]}</div>", unsafe_allow_html=True)
