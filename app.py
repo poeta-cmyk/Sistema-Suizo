@@ -39,25 +39,34 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.caption("Creado por Poeta")
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
     
-    # Eliminado "Configuración de la Partida"
     st.session_state.meta_torneo = st.radio("Meta del encuentro:", [100, 200], horizontal=True)
     
-    def agregar_atleta():
-        nom = st.session_state.nuevo_atleta.upper().strip()
-        if nom and nom not in st.session_state.asistentes:
-            st.session_state.asistentes.append(nom)
-            st.session_state.estados[nom] = True
-            st.session_state.juegos_ganados[nom] = 0
-            st.session_state.puntos_favor[nom] = 0
-            st.session_state.puntos_contra[nom] = 0
-            st.session_state.efectividad[nom] = 1.0
+    def procesar_atleta():
+        nom = st.session_state.campo_input.upper().strip()
+        if nom:
+            if st.session_state.editando:
+                viejo = st.session_state.editando
+                if nom != viejo:
+                    idx = st.session_state.asistentes.index(viejo)
+                    st.session_state.asistentes[idx] = nom
+                    # Migrar datos del nombre viejo al nuevo
+                    for k in ['estados', 'juegos_ganados', 'puntos_contra', 'puntos_favor', 'efectividad']:
+                        st.session_state[k][nom] = st.session_state[k].pop(viejo)
+                st.session_state.editando = None
+            elif nom not in st.session_state.asistentes:
+                st.session_state.asistentes.append(nom)
+                st.session_state.estados[nom] = True
+                st.session_state.juegos_ganados[nom] = 0
+                st.session_state.puntos_favor[nom] = 0
+                st.session_state.puntos_contra[nom] = 0
+                st.session_state.efectividad[nom] = 1.0
             st.session_state.asistentes.sort()
-        st.session_state.nuevo_atleta = ""
+        st.session_state.campo_input = ""
 
-    st.text_input("Nombre del Atleta + ENTER:", key="nuevo_atleta", on_change=agregar_atleta)
+    label_input = f"Corrigiendo a: {st.session_state.editando}" if st.session_state.editando else "Nombre del Atleta + ENTER:"
+    st.text_input(label_input, key="campo_input", on_change=procesar_atleta)
     
     activos = [n for n in st.session_state.asistentes if st.session_state.estados[n]]
-    # Modificado para que solo diga ATLETAS
     st.write(f"### ATLETAS: {len(st.session_state.asistentes)} (Activos: {len(activos)})")
 
     if st.button("🚀 REALIZAR SORTEO Y IR A RESULTADOS"):
@@ -85,11 +94,14 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.rerun()
 
     for n in st.session_state.asistentes:
-        c1, c2, c3 = st.columns([4, 1, 1])
+        c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
         c1.text(f"• {n}")
         if c2.button("✅" if st.session_state.estados[n] else "❌", key=f"st_{n}"):
             st.session_state.estados[n] = not st.session_state.estados[n]; st.rerun()
-        if c3.button("🗑️", key=f"del_{n}"):
+        # Botón de editar restaurado
+        if c3.button("📝", key=f"ed_{n}"):
+            st.session_state.editando = n; st.rerun()
+        if c4.button("🗑️", key=f"del_{n}"):
             st.session_state.asistentes.remove(n); st.rerun()
 
 # --- 4. SECCIÓN: RESULTADOS ---
