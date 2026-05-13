@@ -1,4 +1,5 @@
 import streamlit as st
+import math
 
 # --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL - PRO")
@@ -6,8 +7,8 @@ st.set_page_config(layout="wide", page_title="SISTEMA ADEL - PRO")
 if 'asistentes' not in st.session_state:
     st.session_state.update({
         'asistentes': [], 'juegos_ganados': {}, 'efectividad': {}, 
-        'puntos_contra': {}, 'ronda_actual': 1, 'registro_abierto': True, 
-        'historial_completo': [], 'tarjetas': {}
+        'puntos_contra': {}, 'ronda_actual': 1, 'total_rondas': 5,
+        'registro_abierto': True, 'historial_completo': [], 'tarjetas': {}
     })
 
 # --- 2. FUNCIONES DE LÓGICA ---
@@ -16,17 +17,13 @@ def registrar_atleta():
     if nombre and nombre not in st.session_state.asistentes:
         st.session_state.asistentes.append(nombre)
         st.session_state.asistentes.sort()
-        # Inicialización garantizada para todos
-        for n in st.session_state.asistentes:
-            if n not in st.session_state.tarjetas:
-                st.session_state.tarjetas[n] = "NINGUNA"
-                st.session_state.juegos_ganados[n] = 0
-                st.session_state.efectividad[n] = 0
-                st.session_state.puntos_contra[n] = 0
+        st.session_state.tarjetas[nombre] = "NINGUNA"
+        st.session_state.juegos_ganados[nombre] = 0
+        st.session_state.efectividad[nombre] = 0
+        st.session_state.puntos_contra[nombre] = 0
     st.session_state.nuevo_atleta = ""
 
 def generar_ronda():
-    # Orden por mérito para emparejar
     rk = sorted(st.session_state.asistentes, 
                 key=lambda x: (st.session_state.juegos_ganados[x], 
                                st.session_state.efectividad[x], 
@@ -34,7 +31,7 @@ def generar_ronda():
     
     cant_mesas = len(rk) // 4
     activos = rk[:cant_mesas * 4]
-    reposo = rk[cant_mesas * 4:] # Los que no alcanzaron mesa
+    reposo = rk[cant_mesas * 4:]
     
     mesas = []
     for i in range(0, len(activos), 4):
@@ -43,18 +40,18 @@ def generar_ronda():
     st.session_state.historial_completo.append({
         'ronda': st.session_state.ronda_actual,
         'mesas': mesas,
-        'reposo': reposo,
-        'finalizada': False
+        'reposo': reposo
     })
     st.session_state.registro_abierto = False
 
 # --- 3. NAVEGACIÓN ---
 with st.sidebar:
     st.title("🏆 MENÚ ADEL")
-    pagina = st.radio("Sección:", ["🎮 MESA TÉCNICA", "📺 PANTALLA ADEL"])
+    # Cambio solicitado: De Mesa Técnica a "MESAS"
+    pagina = st.radio("Sección:", ["🎮 MESAS", "📺 PANTALLA ADEL"])
 
-# --- PÁGINA: MESA TÉCNICA ---
-if pagina == "🎮 MESA TÉCNICA":
+# --- PÁGINA: MESAS ---
+if pagina == "🎮 MESAS":
     st.header("ADEL")
     
     if st.session_state.registro_abierto:
@@ -62,8 +59,7 @@ if pagina == "🎮 MESA TÉCNICA":
         st.text_input("Nombre del Atleta + ENTER:", key="nuevo_atleta", on_change=registrar_atleta)
         if st.session_state.asistentes:
             st.markdown(f"### Inscritos: {len(st.session_state.asistentes)}")
-            for i, n in enumerate(st.session_state.asistentes): st.text(f"{i+1}. {n}")
-            if st.button("🚀 INICIAR TORNEO") and len(st.session_state.asistentes) >= 4:
+            if st.button("🚀 INICIAR TORNEO"):
                 generar_ronda()
                 st.rerun()
     else:
@@ -71,8 +67,9 @@ if pagina == "🎮 MESA TÉCNICA":
         r_data = st.session_state.historial_completo[-1]
         
         with tab1:
-            st.subheader(f"Carga de Resultados - Ronda {r_data['ronda']}")
-            # Mostrar quiénes están en reposo en la mesa técnica
+            # Cambio solicitado: Ronda X (de Y)
+            st.subheader(f"Carga de Puntos - Ronda {r_data['ronda']} (de {st.session_state.total_rondas})")
+            
             if r_data['reposo']:
                 st.warning(f"Atletas en Reposo: {', '.join(r_data['reposo'])}")
             
@@ -80,16 +77,18 @@ if pagina == "🎮 MESA TÉCNICA":
                 with st.container(border=True):
                     st.write(f"**MESA {i+1}**")
                     c1, c2 = st.columns(2)
-                    with c1: st.number_input(f"A) {m[0]} --- C) {m[2]}", key=f"pAC_m{i}", min_value=0)
-                    with c2: st.number_input(f"B) {m[1]} --- D) {m[3]}", key=f"pBD_m{i}", min_value=0)
+                    with c1: st.number_input(f"A) {m[0]} --- C) {m[2]}", key=f"pAC_m{i}", min_value=0, step=1)
+                    with c2: st.number_input(f"B) {m[1]} --- D) {m[3]}", key=f"pBD_m{i}", min_value=0, step=1)
 
         with tab2:
             st.subheader("Baremo Oficial y Sanciones")
+            # Explicación de la fórmula logarítmica reintegrada
+            st.caption("Efectividad calculada mediante logaritmos de base decimal sobre puntos anotados/recibidos.")
+            
             cols = st.columns([0.5, 2, 0.7, 0.7, 0.7, 1.5])
             for col, h in zip(cols, ["Pos", "Atleta", "JG", "Efect", "PC", "TARJETAS"]):
                 col.write(f"**{h}**")
             
-            # El baremo siempre muestra a TODOS los inscritos
             rk_all = sorted(st.session_state.asistentes, 
                             key=lambda x: (st.session_state.juegos_ganados[x], 
                                            st.session_state.efectividad[x], 
@@ -99,27 +98,23 @@ if pagina == "🎮 MESA TÉCNICA":
                 c[0].write(i+1)
                 c[1].write(n)
                 c[2].write(st.session_state.juegos_ganados[n])
-                c[3].write(st.session_state.efectividad[n])
+                c[3].write(f"{st.session_state.efectividad[n]:.3f}")
                 c[4].write(st.session_state.puntos_contra[n])
                 st.session_state.tarjetas[n] = c[5].selectbox(
                     "Sanción", ["NINGUNA", "AMARILLA 🟨", "ROJA 🟥", "NEGRA ⬛"], 
-                    key=f"tj_{n}", label_visibility="collapsed",
-                    index=["NINGUNA", "AMARILLA 🟨", "ROJA 🟥", "NEGRA ⬛"].index(st.session_state.tarjetas.get(n, "NINGUNA"))
+                    key=f"tj_{n}", label_visibility="collapsed"
                 )
 
 # --- PÁGINA: PANTALLA ADEL ---
 elif pagina == "📺 PANTALLA ADEL":
     st.header("Monitor Oficial ADEL")
-    if not st.session_state.historial_completo:
-        st.info("Esperando registro de atletas...")
-    else:
+    if st.session_state.historial_completo:
         r_data = st.session_state.historial_completo[-1]
+        st.subheader(f"Ronda {r_data['ronda']} (de {st.session_state.total_rondas})")
         
-        # Bloque de Reposo resaltado
         if r_data['reposo']:
             st.error(f"⌛ ATLETAS EN REPOSO: {', '.join(r_data['reposo'])}")
-            st.markdown("---")
-
+        
         filas = [r_data['mesas'][i:i + 4] for i in range(0, len(r_data['mesas']), 4)]
         for f_idx, fila in enumerate(filas):
             cols = st.columns(4)
