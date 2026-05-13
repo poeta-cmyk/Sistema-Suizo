@@ -5,7 +5,6 @@ import random
 # --- 1. CONFIGURACIÓN Y ESTADO INICIAL ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
 
-# Inicialización segura para evitar el error de la captura image_2d80ef.png
 if 'asistentes' not in st.session_state:
     st.session_state.update({
         'asistentes': [], 
@@ -30,7 +29,6 @@ def recalcular_baremo(atleta):
 # --- 2. NAVEGACIÓN ---
 with st.sidebar:
     st.title("🏆 MENÚ ADEL")
-    # Sincronización de navegación para el salto automático
     lista_paginas = ["INSCRIPCIÓN", "MESAS", "RESULTADOS", "RANKING"]
     idx_actual = lista_paginas.index(st.session_state.seccion_activa)
     opcion = st.radio("SECCIÓN:", lista_paginas, index=idx_actual)
@@ -41,8 +39,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.caption("Creado por Poeta")
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
     
-    # Selector de Meta solicitado
-    st.subheader("Configuración de la Partida")
+    # Eliminado "Configuración de la Partida"
     st.session_state.meta_torneo = st.radio("Meta del encuentro:", [100, 200], horizontal=True)
     
     def agregar_atleta():
@@ -60,9 +57,9 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.text_input("Nombre del Atleta + ENTER:", key="nuevo_atleta", on_change=agregar_atleta)
     
     activos = [n for n in st.session_state.asistentes if st.session_state.estados[n]]
-    st.write(f"### Atletas en Nómina: {len(st.session_state.asistentes)} (Activos: {len(activos)})")
+    # Modificado para que solo diga ATLETAS
+    st.write(f"### ATLETAS: {len(st.session_state.asistentes)} (Activos: {len(activos)})")
 
-    # BOTÓN DE SORTEO Y SALTO AUTOMÁTICO
     if st.button("🚀 REALIZAR SORTEO Y IR A RESULTADOS"):
         if len(activos) < 4:
             st.error("Se necesitan al menos 4 atletas activos.")
@@ -72,7 +69,6 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             mesas = [activos[i:i+4] for i in range(0, n_jug, 4)]
             reposo = activos[n_jug:]
             
-            # Bonificación de Reposo: Mitad de meta a cero
             bono = st.session_state.meta_torneo / 2
             for r in reposo:
                 st.session_state.puntos_favor[r] += bono
@@ -88,7 +84,6 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.session_state.seccion_activa = "RESULTADOS"
             st.rerun()
 
-    # Visualización de lista
     for n in st.session_state.asistentes:
         c1, c2, c3 = st.columns([4, 1, 1])
         c1.text(f"• {n}")
@@ -116,9 +111,11 @@ elif st.session_state.seccion_activa == "RESULTADOS":
                 with st.container(border=True):
                     st.write(f"### MESA {i+1}")
                     col1, col2 = st.columns(2)
-                    # Formato Nombre (Silla) solicitado
-                    val_ac = col1.number_input(f"Puntos {m[0]} (A) y {m[2]} (C):", 0, 250, key=f"ac_{i}")
-                    val_bd = col2.number_input(f"Puntos {m[1]} (B) y {m[3]} (D):", 0, 250, key=f"bd_{i}")
+                    p1_label = f"{m[0]} (A) y {m[2]} (C)"
+                    p2_label = f"{m[1]} (B) y {m[3]} (D)"
+                    
+                    val_ac = col1.number_input(f"Puntos {p1_label}:", 0, 250, key=f"ac_{i}")
+                    val_bd = col2.number_input(f"Puntos {p2_label}:", 0, 250, key=f"bd_{i}")
                     
                     if st.button(f"GUARDAR MESA {i+1}", key=f"btn_{i}"):
                         for j in [m[0], m[2]]:
