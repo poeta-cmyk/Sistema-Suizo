@@ -30,20 +30,30 @@ with st.sidebar:
 
 # --- 4. SECCIÓN: MESAS (CONTROL Y CARGA) ---
 if opcion == "MESAS":
-    st.header("Mesa Técnica: Control de Torneo")
+    # CAMBIO SOLICITADO: ENCABEZADO INSTITUCIONAL
+    st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
     
     if st.session_state.registro_abierto:
-        nombre = st.text_input("Nombre del Atleta + ENTER:").upper()
-        if nombre and nombre not in st.session_state.asistentes:
-            st.session_state.asistentes.append(nombre)
-            for k in ['juegos_ganados', 'puntos_contra', 'puntos_favor']: 
-                st.session_state[k][nombre] = 0
-            st.session_state.efectividad[nombre] = 1.0
-            st.rerun()
+        st.subheader("Inscripción de Atletas")
+        
+        # CAMBIO SOLICITADO: CAMPO QUE SE LIMPIA AL INGRESAR NOMBRE
+        if "input_nombre" not in st.session_state:
+            st.session_state.input_nombre = ""
+
+        def agregar_atleta():
+            nombre = st.session_state.temp_nombre.upper().strip()
+            if nombre and nombre not in st.session_state.asistentes:
+                st.session_state.asistentes.append(nombre)
+                for k in ['juegos_ganados', 'puntos_contra', 'puntos_favor']: 
+                    st.session_state[k][nombre] = 0
+                st.session_state.efectividad[nombre] = 1.0
+            # Limpia el campo temporal
+            st.session_state.temp_nombre = ""
+
+        st.text_input("Nombre del Atleta + ENTER:", key="temp_nombre", on_change=agregar_atleta)
         
         if st.session_state.asistentes:
             st.write(f"Inscritos ({len(st.session_state.asistentes)}):")
-            # SE MUESTRA LA LISTA DE INSCRITOS PARA VALIDAR NOMBRES
             for i, n in enumerate(st.session_state.asistentes):
                 st.text(f"{i+1}. {n}")
                 
@@ -62,7 +72,6 @@ if opcion == "MESAS":
         
         with tab_c:
             for i, m in enumerate(r['mesas']):
-                # NOMBRES VISIBLES EN EL TÍTULO DEL EXPANDER
                 with st.expander(f"MESA {i+1}: {m[0]}, {m[1]}, {m[2]}, {m[3]}", expanded=True):
                     c1, c2 = st.columns(2)
                     p_ac = c1.number_input(f"A+C ({m[0]}/{m[2]})", key=f"ac_{i}", min_value=0)
@@ -95,7 +104,6 @@ elif opcion == "PANTALLA ADEL":
             with st.container(border=True):
                 st.markdown(f"<h3 style='text-align:center;'>MESA {idx+1}</h3>", unsafe_allow_html=True)
                 ca, cm, cd = st.columns([1, 1, 1])
-                # NOMBRES EN MONITOR PÚBLICO
                 cm.markdown(f"<div style='text-align:center;'><b>A</b><br>{mj[0]}<br><br><b>C</b><br>{mj[2]}</div>", unsafe_allow_html=True)
                 ca.markdown(f"<div style='text-align:right;'><br><b>B</b><br>{mj[1]}</div>", unsafe_allow_html=True)
                 cd.markdown(f"<div style='text-align:left;'><br><b>D</b><br>{mj[3]}</div>", unsafe_allow_html=True)
