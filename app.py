@@ -30,6 +30,7 @@ def generar_ronda():
     activos = rk_merito[:]
     mesas = []
     while len(activos) >= 4:
+        # Estructura: [Norte(A), Sur(B), Este(C), Oeste(D)]
         mesas.append([activos.pop(0), activos.pop(0), activos.pop(0), activos.pop(0)])
     
     st.session_state.historial_completo.append({
@@ -71,8 +72,14 @@ if pagina == "🎮 MESA TÉCNICA":
                 with st.container(border=True):
                     st.write(f"**MESA {i+1}**")
                     c1, c2 = st.columns(2)
-                    with c1: st.number_input(f"Pts Pareja A ({m[0]}-{m[2]})", key=f"pA_m{i}", min_value=0)
-                    with c2: st.number_input(f"Pts Pareja B ({m[1]}-{m[3]})", key=f"pB_m{i}", min_value=0)
+                    # Nomenclatura solicitada: A) Nombre C) Nombre
+                    with c1: 
+                        st.number_input(f"A) {m[0]} --- C) {m[2]}", 
+                                        key=f"pAC_m{i}", min_value=0, step=1)
+                    # Nomenclatura solicitada: B) Nombre D) Nombre
+                    with c2: 
+                        st.number_input(f"B) {m[1]} --- D) {m[3]}", 
+                                        key=f"pBD_m{i}", min_value=0, step=1)
 
         with tab2:
             st.subheader("Baremo Oficial")
@@ -107,11 +114,13 @@ elif pagina == "📺 PANTALLA ADEL":
         for i, m in enumerate(r_data['mesas']):
             with cols[i % 2]:
                 with st.container(border=True):
-                    # Identificación de Mesa superior eliminada para usarla en el centro
-                    st.markdown(f"<div style='text-align:center; font-weight:bold;'>{m[0]}</div>", unsafe_allow_html=True)
+                    # El nombre superior es el Atleta A
+                    st.markdown(f"<div style='text-align:center; font-weight:bold;'>A) {m[0]}</div>", unsafe_allow_html=True)
                     cl, cm, cr = st.columns([1,1,1])
-                    cl.markdown(f"<div style='text-align:right; margin-top:15px;'>{m[1]}</div>", unsafe_allow_html=True)
-                    # Cambio solicitado: Se coloca el número de mesa en el centro y se elimina "ADEL"
+                    # Lateral izquierdo: B
+                    cl.markdown(f"<div style='text-align:right; margin-top:15px;'>B) {m[1]}</div>", unsafe_allow_html=True)
                     cm.markdown(f"<div style='text-align:center; font-size:1.5em; color:#FF4B4B; font-weight:bold; margin-top:5px;'>MESA {i+1}</div>", unsafe_allow_html=True)
-                    cr.markdown(f"<div style='text-align:left; margin-top:15px;'>{m[3]}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='text-align:center; font-weight:bold;'>{m[2]}</div>", unsafe_allow_html=True)
+                    # Lateral derecho: D
+                    cr.markdown(f"<div style='text-align:left; margin-top:15px;'>D) {m[3]}</div>", unsafe_allow_html=True)
+                    # Inferior: C (Pareja de A)
+                    st.markdown(f"<div style='text-align:center; font-weight:bold;'>C) {m[2]}</div>", unsafe_allow_html=True)
