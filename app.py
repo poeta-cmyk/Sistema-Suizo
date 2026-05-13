@@ -15,8 +15,7 @@ def registrar_atleta():
     nombre = st.session_state.nuevo_atleta.strip().upper()
     if nombre and nombre not in st.session_state.asistentes:
         st.session_state.asistentes.append(nombre)
-        st.session_state.asistentes.sort() # Mantiene el orden alfabético interno
-        
+        st.session_state.asistentes.sort()
         st.session_state.tarjetas[nombre] = "NINGUNA"
         st.session_state.juegos_ganados[nombre] = 0
         st.session_state.efectividad[nombre] = 0
@@ -47,14 +46,13 @@ with st.sidebar:
 
 # --- PÁGINA: MESA TÉCNICA ---
 if pagina == "🎮 MESA TÉCNICA":
-    st.header("ADEL") # Cambio solicitado: Título simplificado
+    st.header("ADEL")
     
     if st.session_state.registro_abierto:
         st.subheader("Registro de Atletas")
         st.text_input("Nombre del Atleta + ENTER:", key="nuevo_atleta", on_change=registrar_atleta)
         
         if st.session_state.asistentes:
-            # Cambio solicitado: Se quita "Orden Alfabético" del texto visual
             st.markdown(f"### Atletas Inscritos ({len(st.session_state.asistentes)})")
             for i, nombre in enumerate(st.session_state.asistentes):
                 st.text(f"{i+1}. {nombre}")
@@ -79,7 +77,6 @@ if pagina == "🎮 MESA TÉCNICA":
         with tab2:
             st.subheader("Baremo Oficial")
             cols = st.columns([0.5, 2, 0.7, 0.7, 0.7, 1.5])
-            # Estructura de baremo según imagen 66d9d7
             for col, h in zip(cols, ["Pos", "Atleta", "JG", "Efect", "PC", "TARJETAS"]):
                 col.write(f"**{h}**")
             
@@ -94,7 +91,6 @@ if pagina == "🎮 MESA TÉCNICA":
                 c[2].write(st.session_state.juegos_ganados[n])
                 c[3].write(st.session_state.efectividad[n])
                 c[4].write(st.session_state.puntos_contra[n])
-                # Selector manual solicitado para justicia
                 st.session_state.tarjetas[n] = c[5].selectbox(
                     "Sanción", ["NINGUNA", "AMARILLA 🟨", "ROJA 🟥", "NEGRA ⬛"], 
                     key=f"tj_{n}", label_visibility="collapsed"
@@ -111,11 +107,11 @@ elif pagina == "📺 PANTALLA ADEL":
         for i, m in enumerate(r_data['mesas']):
             with cols[i % 2]:
                 with st.container(border=True):
-                    # Diseño visual de mesa en cruz
-                    st.markdown(f"<h3 style='text-align:center;'>MESA {i+1}</h3>", unsafe_allow_html=True)
+                    # Identificación de Mesa superior eliminada para usarla en el centro
                     st.markdown(f"<div style='text-align:center; font-weight:bold;'>{m[0]}</div>", unsafe_allow_html=True)
                     cl, cm, cr = st.columns([1,1,1])
                     cl.markdown(f"<div style='text-align:right; margin-top:15px;'>{m[1]}</div>", unsafe_allow_html=True)
-                    cm.markdown("<div style='text-align:center; font-size:1.8em; color:red; font-weight:bold;'>ADEL</div>", unsafe_allow_html=True)
+                    # Cambio solicitado: Se coloca el número de mesa en el centro y se elimina "ADEL"
+                    cm.markdown(f"<div style='text-align:center; font-size:1.5em; color:#FF4B4B; font-weight:bold; margin-top:5px;'>MESA {i+1}</div>", unsafe_allow_html=True)
                     cr.markdown(f"<div style='text-align:left; margin-top:15px;'>{m[3]}</div>", unsafe_allow_html=True)
                     st.markdown(f"<div style='text-align:center; font-weight:bold;'>{m[2]}</div>", unsafe_allow_html=True)
