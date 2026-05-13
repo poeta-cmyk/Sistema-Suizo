@@ -4,14 +4,24 @@ import math
 # --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL - PRO")
 
+# Inicialización robusta para evitar el AttributeError de la imagen 65809a
+if 'total_rondas' not in st.session_state:
+    st.session_state.total_rondas = 5
+
 if 'asistentes' not in st.session_state:
     st.session_state.update({
         'asistentes': [], 'juegos_ganados': {}, 'efectividad': {}, 
-        'puntos_contra': {}, 'ronda_actual': 1, 'total_rondas': 5,
+        'puntos_contra': {}, 'puntos_favor': {}, 'ronda_actual': 1,
         'registro_abierto': True, 'historial_completo': [], 'tarjetas': {}
     })
 
-# --- 2. FUNCIONES DE LÓGICA ---
+# --- 2. FUNCIONES DE LÓGICA MATEMÁTICA ---
+def calcular_efectividad_log(pf, pc):
+    """Fórmula de efectividad basada en logaritmos solicitada por el Poeta."""
+    if pc == 0: pc = 1 # Evitar división por cero
+    if pf == 0: pf = 1 # Evitar logaritmo de cero
+    return math.log10(pf / pc) + 1 # Ajuste base para el baremo
+
 def registrar_atleta():
     nombre = st.session_state.nuevo_atleta.strip().upper()
     if nombre and nombre not in st.session_state.asistentes:
@@ -19,8 +29,9 @@ def registrar_atleta():
         st.session_state.asistentes.sort()
         st.session_state.tarjetas[nombre] = "NINGUNA"
         st.session_state.juegos_ganados[nombre] = 0
-        st.session_state.efectividad[nombre] = 0
+        st.session_state.efectividad[nombre] = 0.0
         st.session_state.puntos_contra[nombre] = 0
+        st.session_state.puntos_favor[nombre] = 0
     st.session_state.nuevo_atleta = ""
 
 def generar_ronda():
@@ -47,7 +58,7 @@ def generar_ronda():
 # --- 3. NAVEGACIÓN ---
 with st.sidebar:
     st.title("🏆 MENÚ ADEL")
-    # Cambio solicitado: De Mesa Técnica a "MESAS"
+    # Sección renombrada a "MESAS" según su instrucción
     pagina = st.radio("Sección:", ["🎮 MESAS", "📺 PANTALLA ADEL"])
 
 # --- PÁGINA: MESAS ---
@@ -58,7 +69,9 @@ if pagina == "🎮 MESAS":
         st.subheader("Registro de Atletas")
         st.text_input("Nombre del Atleta + ENTER:", key="nuevo_atleta", on_change=registrar_atleta)
         if st.session_state.asistentes:
-            st.markdown(f"### Inscritos: {len(st.session_state.asistentes)}")
+            st.markdown(f"### Atletas Inscritos ({len(st.session_state.asistentes)})")
+            for i, n in enumerate(st.session_state.asistentes): st.text(f"{i+1}. {n}")
+            st.markdown("---")
             if st.button("🚀 INICIAR TORNEO"):
                 generar_ronda()
                 st.rerun()
@@ -67,7 +80,7 @@ if pagina == "🎮 MESAS":
         r_data = st.session_state.historial_completo[-1]
         
         with tab1:
-            # Cambio solicitado: Ronda X (de Y)
+            # Corrección del error visual: Ronda X (de Y)
             st.subheader(f"Carga de Puntos - Ronda {r_data['ronda']} (de {st.session_state.total_rondas})")
             
             if r_data['reposo']:
@@ -77,14 +90,12 @@ if pagina == "🎮 MESAS":
                 with st.container(border=True):
                     st.write(f"**MESA {i+1}**")
                     c1, c2 = st.columns(2)
-                    with c1: st.number_input(f"A) {m[0]} --- C) {m[2]}", key=f"pAC_m{i}", min_value=0, step=1)
-                    with c2: st.number_input(f"B) {m[1]} --- D) {m[3]}", key=f"pBD_m{i}", min_value=0, step=1)
+                    with c1: st.number_input(f"A) {m[0]} --- C) {m[2]}", key=f"pAC_m{i}", min_value=0)
+                    with c2: st.number_input(f"B) {m[1]} --- D) {m[3]}", key=f"pBD_m{i}", min_value=0)
 
         with tab2:
             st.subheader("Baremo Oficial y Sanciones")
-            # Explicación de la fórmula logarítmica reintegrada
-            st.caption("Efectividad calculada mediante logaritmos de base decimal sobre puntos anotados/recibidos.")
-            
+            # El baremo ahora incluye los datos técnicos aprobados
             cols = st.columns([0.5, 2, 0.7, 0.7, 0.7, 1.5])
             for col, h in zip(cols, ["Pos", "Atleta", "JG", "Efect", "PC", "TARJETAS"]):
                 col.write(f"**{h}**")
@@ -100,6 +111,7 @@ if pagina == "🎮 MESAS":
                 c[2].write(st.session_state.juegos_ganados[n])
                 c[3].write(f"{st.session_state.efectividad[n]:.3f}")
                 c[4].write(st.session_state.puntos_contra[n])
+                # Selector de tarjetas para el control de justicia
                 st.session_state.tarjetas[n] = c[5].selectbox(
                     "Sanción", ["NINGUNA", "AMARILLA 🟨", "ROJA 🟥", "NEGRA ⬛"], 
                     key=f"tj_{n}", label_visibility="collapsed"
@@ -115,6 +127,7 @@ elif pagina == "📺 PANTALLA ADEL":
         if r_data['reposo']:
             st.error(f"⌛ ATLETAS EN REPOSO: {', '.join(r_data['reposo'])}")
         
+        # 4 mesas por fila para optimizar el espacio visual
         filas = [r_data['mesas'][i:i + 4] for i in range(0, len(r_data['mesas']), 4)]
         for f_idx, fila in enumerate(filas):
             cols = st.columns(4)
