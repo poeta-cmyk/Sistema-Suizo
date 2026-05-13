@@ -85,3 +85,26 @@ if opcion == "MESAS": # Ahora muestra correctamente el Control
             for i, n in enumerate(rk_all):
                 c = st.columns([0.5, 2, 0.7, 0.7, 0.7, 1.5])
                 c[0].write(i+1); c[1].write(n); c[2].write(st.session_state.juegos_ganados[n])
+                c[3].write(f"{st.session_state.efectividad[n]:.3f}"); c[4].write(st.session_state.puntos_contra[n])
+                st.session_state.tarjetas[n] = c[5].selectbox("Sanción", ["NINGUNA", "AMARILLA 🟨", "ROJA 🟥", "NEGRA ⬛"], key=f"tj_{n}", label_visibility="collapsed")
+
+# --- SECCIÓN: PANTALLA ADEL (MONITOR PÚBLICO) ---
+elif opcion == "PANTALLA ADEL": # Ahora muestra correctamente el Monitor
+    st.header("Monitor Oficial ADEL")
+    if st.session_state.historial_completo:
+        r_data = st.session_state.historial_completo[-1]
+        st.subheader(f"Ronda {r_data['ronda']} (de {st.session_state.total_rondas})") #
+        if r_data['reposo']: st.error(f"⌛ ATLETAS EN REPOSO: {', '.join(r_data['reposo'])}")
+        filas = [r_data['mesas'][i:i + 4] for i in range(0, len(r_data['mesas']), 4)]
+        for f_idx, fila in enumerate(filas):
+            cols = st.columns(4)
+            for i, m in enumerate(fila):
+                num_m = (f_idx * 4) + i + 1
+                with cols[i]:
+                    with st.container(border=True):
+                        st.markdown(f"<div style='text-align:center; font-weight:bold;'>A) {m[0]}</div>", unsafe_allow_html=True)
+                        cl, cm, cr = st.columns([1.2, 1, 1.2])
+                        cl.markdown(f"<div style='text-align:right; font-size:0.8em; margin-top:10px;'>B) {m[1]}</div>", unsafe_allow_html=True)
+                        cm.markdown(f"<div style='text-align:center; font-size:1.1em; color:#FF4B4B; font-weight:bold; margin-top:5px;'>MESA {num_m}</div>", unsafe_allow_html=True)
+                        cr.markdown(f"<div style='text-align:left; font-size:0.8em; margin-top:10px;'>D) {m[3]}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align:center; font-weight:bold;'>C) {m[2]}</div>", unsafe_allow_html=True)
