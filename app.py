@@ -15,10 +15,8 @@ def registrar_atleta():
     nombre = st.session_state.nuevo_atleta.strip().upper()
     if nombre and nombre not in st.session_state.asistentes:
         st.session_state.asistentes.append(nombre)
-        # ORDEN ALFABÉTICO AUTOMÁTICO (Petición del Poeta)
-        st.session_state.asistentes.sort()
+        st.session_state.asistentes.sort() # Mantiene el orden alfabético interno
         
-        # Inicialización de valores para el Baremo
         st.session_state.tarjetas[nombre] = "NINGUNA"
         st.session_state.juegos_ganados[nombre] = 0
         st.session_state.efectividad[nombre] = 0
@@ -26,7 +24,6 @@ def registrar_atleta():
     st.session_state.nuevo_atleta = ""
 
 def generar_ronda():
-    # El Baremo ordena por mérito: JG -> Efect -> -PC
     rk_merito = sorted(st.session_state.asistentes, 
                        key=lambda x: (st.session_state.juegos_ganados[x], 
                                       st.session_state.efectividad[x], 
@@ -50,15 +47,15 @@ with st.sidebar:
 
 # --- PÁGINA: MESA TÉCNICA ---
 if pagina == "🎮 MESA TÉCNICA":
-    st.header("Control de Torneo y Justicia")
+    st.header("ADEL") # Cambio solicitado: Título simplificado
     
     if st.session_state.registro_abierto:
         st.subheader("Registro de Atletas")
         st.text_input("Nombre del Atleta + ENTER:", key="nuevo_atleta", on_change=registrar_atleta)
         
         if st.session_state.asistentes:
-            st.markdown(f"### Atletas Inscritos ({len(st.session_state.asistentes)}) - *Orden Alfabético*")
-            # Lista visual organizada alfabéticamente
+            # Cambio solicitado: Se quita "Orden Alfabético" del texto visual
+            st.markdown(f"### Atletas Inscritos ({len(st.session_state.asistentes)})")
             for i, nombre in enumerate(st.session_state.asistentes):
                 st.text(f"{i+1}. {nombre}")
             
@@ -80,13 +77,12 @@ if pagina == "🎮 MESA TÉCNICA":
                     with c2: st.number_input(f"Pts Pareja B ({m[1]}-{m[3]})", key=f"pB_m{i}", min_value=0)
 
         with tab2:
-            st.subheader("Baremo Oficial (Posiciones)")
-            # Encabezados según diseño solicitado
+            st.subheader("Baremo Oficial")
             cols = st.columns([0.5, 2, 0.7, 0.7, 0.7, 1.5])
+            # Estructura de baremo según imagen 66d9d7
             for col, h in zip(cols, ["Pos", "Atleta", "JG", "Efect", "PC", "TARJETAS"]):
                 col.write(f"**{h}**")
             
-            # Orden de mérito para el Baremo
             rk_sorted = sorted(st.session_state.asistentes, 
                                key=lambda x: (st.session_state.juegos_ganados[x], 
                                               st.session_state.efectividad[x], 
@@ -98,7 +94,7 @@ if pagina == "🎮 MESA TÉCNICA":
                 c[2].write(st.session_state.juegos_ganados[n])
                 c[3].write(st.session_state.efectividad[n])
                 c[4].write(st.session_state.puntos_contra[n])
-                # Selector manual de tarjetas en el Baremo
+                # Selector manual solicitado para justicia
                 st.session_state.tarjetas[n] = c[5].selectbox(
                     "Sanción", ["NINGUNA", "AMARILLA 🟨", "ROJA 🟥", "NEGRA ⬛"], 
                     key=f"tj_{n}", label_visibility="collapsed"
@@ -108,13 +104,14 @@ if pagina == "🎮 MESA TÉCNICA":
 elif pagina == "📺 PANTALLA ADEL":
     st.header("Monitor Oficial ADEL")
     if not st.session_state.historial_completo:
-        st.warning("El torneo comenzará pronto...")
+        st.warning("Inicie el torneo en la Mesa Técnica.")
     else:
         r_data = st.session_state.historial_completo[-1]
         cols = st.columns(2)
         for i, m in enumerate(r_data['mesas']):
             with cols[i % 2]:
                 with st.container(border=True):
+                    # Diseño visual de mesa en cruz
                     st.markdown(f"<h3 style='text-align:center;'>MESA {i+1}</h3>", unsafe_allow_html=True)
                     st.markdown(f"<div style='text-align:center; font-weight:bold;'>{m[0]}</div>", unsafe_allow_html=True)
                     cl, cm, cr = st.columns([1,1,1])
