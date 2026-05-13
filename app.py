@@ -4,7 +4,6 @@ import math
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
 
-# BLINDAJE DE MEMORIA
 if 'asistentes' not in st.session_state:
     st.session_state.update({
         'asistentes': [], 
@@ -56,15 +55,15 @@ if opcion == "INSCRIPCIÓN":
             st.session_state.asistentes.sort()
         st.session_state.campo_input = "" 
 
-    # CAMBIO SOLICITADO: Etiqueta (ATLETA)
-    label_dinamico = f"Corrigiendo a: {st.session_state.editando}" if st.session_state.editando else "(ATLETA)"
+    # CORREGIDO: "ATLETA" sin paréntesis
+    label_dinamico = f"Corrigiendo a: {st.session_state.editando}" if st.session_state.editando else "ATLETA"
     st.text_input(label_dinamico, key="campo_input", on_change=procesar_entrada)
     
     if st.session_state.asistentes:
         activos = [n for n in st.session_state.asistentes if st.session_state.estados[n]]
         
-        # CAMBIO SOLICITADO: (Atletas inscritos)
-        st.write(f"### (Atletas inscritos): {len(st.session_state.asistentes)} (Activos: {len(activos)})")
+        # CORREGIDO: "Atletas inscritos" sin paréntesis
+        st.write(f"### Atletas inscritos: {len(st.session_state.asistentes)} - Activos: {len(activos)}")
         
         for n in st.session_state.asistentes:
             c_nom, c_act, c_edit, c_del = st.columns([3, 1, 1, 1])
@@ -83,3 +82,9 @@ if opcion == "INSCRIPCIÓN":
                 for k in ['estados', 'juegos_ganados', 'puntos_contra', 'puntos_favor', 'efectividad']:
                     del st.session_state[k][n]
                 st.rerun()
+
+# --- 5. MESAS (Se mantiene igual) ---
+elif opcion == "MESAS":
+    st.caption("Creado por Poeta")
+    st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
+    # ... resto del código ...
