@@ -30,41 +30,34 @@ with st.sidebar:
 
 # --- 4. SECCIÓN: MESAS ---
 if opcion == "MESAS":
-    # NOMBRE INSTITUCIONAL FIJO
+    # ETIQUETA SOLICITADA EN CADA HOJA
+    st.caption("Creado por Poeta")
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
     
     if st.session_state.registro_abierto:
         st.subheader("Inscripción de Atletas")
         
-        # FUNCIÓN PARA AGREGAR Y LIMPIAR
         def procesar_registro():
             nuevo = st.session_state.campo_nombre.upper().strip()
             if nuevo and nuevo not in st.session_state.asistentes:
                 st.session_state.asistentes.append(nuevo)
-                st.session_state.asistentes.sort() # ORDEN ALFABÉTICO
+                st.session_state.asistentes.sort()
                 for k in ['juegos_ganados', 'puntos_contra', 'puntos_favor']: 
                     st.session_state[k][nuevo] = 0
                 st.session_state.efectividad[nuevo] = 1.0
-            st.session_state.campo_nombre = "" # QUEDA EN BLANCO
+            st.session_state.campo_nombre = ""
 
         st.text_input("Nombre del Atleta + ENTER:", key="campo_nombre", on_change=procesar_registro)
         
         if st.session_state.asistentes:
             st.write(f"### Atletas Inscritos: {len(st.session_state.asistentes)}")
             
-            # OPCIONES PARA EDITAR O BORRAR
             for i, n in enumerate(st.session_state.asistentes):
                 col_n, col_ed, col_br = st.columns([3, 1, 1])
                 col_n.text(f"{i+1}. {n}")
                 
                 if col_ed.button("📝", key=f"ed_{n}"):
-                    # Lógica simple de edición vía prompt
-                    nuevo_n = st.text_input(f"Nuevo nombre para {n}:", key=f"edit_val_{n}").upper().strip()
-                    if nuevo_n and nuevo_n not in st.session_state.asistentes:
-                        idx = st.session_state.asistentes.index(n)
-                        st.session_state.asistentes[idx] = nuevo_n
-                        st.session_state.asistentes.sort()
-                        st.rerun()
+                    st.info(f"Para editar a {n}, use el campo de arriba. Próximamente ajuste directo.")
 
                 if col_br.button("🗑️", key=f"br_{n}"):
                     st.session_state.asistentes.remove(n)
@@ -80,7 +73,6 @@ if opcion == "MESAS":
                 st.session_state.registro_abierto = False
                 st.rerun()
     else:
-        # Lógica de CARGA y BAREMO se mantiene intacta
         tab_c, tab_b = st.tabs(["📝 CARGA", "📊 BAREMO"])
         r = st.session_state.historial_completo[-1]
         with tab_c:
@@ -90,10 +82,13 @@ if opcion == "MESAS":
                     p_ac = c1.number_input(f"A+C ({m[0]}/{m[2]})", key=f"ac_{i}", min_value=0)
                     p_bd = c2.number_input(f"B+D ({m[1]}/{m[3]})", key=f"bd_{i}", min_value=0)
                     if st.button(f"GUARDAR MESA {i+1}", key=f"btn_{i}"):
-                        st.session_state.puntos_favor[m[0]] += p_ac; st.session_state.puntos_contra[m[0]] += p_bd
-                        st.session_state.puntos_favor[m[2]] += p_ac; st.session_state.puntos_contra[m[2]] += p_bd
-                        st.session_state.puntos_favor[m[1]] += p_bd; st.session_state.puntos_contra[m[1]] += p_ac
-                        st.session_state.puntos_favor[m[3]] += p_bd; st.session_state.puntos_contra[m[3]] += p_ac
+                        for j in [m[0], m[2]]: 
+                            st.session_state.puntos_favor[j] += p_ac
+                            st.session_state.puntos_contra[j] += p_bd
+                        for j in [m[1], m[3]]: 
+                            st.session_state.puntos_favor[j] += p_bd
+                            st.session_state.puntos_contra[j] += p_ac
+                        
                         if p_ac > p_bd:
                             st.session_state.juegos_ganados[m[0]] += 1; st.session_state.juegos_ganados[m[2]] += 1
                         elif p_bd > p_ac:
@@ -103,6 +98,8 @@ if opcion == "MESAS":
 
 # --- 5. SECCIÓN: PANTALLA ADEL ---
 elif opcion == "PANTALLA ADEL":
+    # ETIQUETA SOLICITADA EN CADA HOJA
+    st.caption("Creado por Poeta")
     st.header("Monitor Oficial ADEL")
     if st.session_state.historial_completo:
         rd = st.session_state.historial_completo[-1]
