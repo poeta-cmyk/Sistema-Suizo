@@ -26,7 +26,6 @@ st.markdown("""
     .norte { margin-bottom: 10px; } .sur { margin-top: 10px; }
     .fila-central { display: flex; align-items: center; justify-content: center; width: 100%; }
     .este-oeste { writing-mode: vertical-rl; text-orientation: mixed; padding: 0 25px; }
-    /* Estilo para el área de reposo */
     .reposo-box {
         background-color: #f0f2f6;
         border-left: 5px solid #CC0000;
@@ -46,7 +45,7 @@ with st.sidebar:
 
 # --- 3. SECCIÓN: INSCRIPCIÓN ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
-    st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL")
+    st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
     
     def procesar_atleta():
         nom = st.session_state.campo_input.upper().strip()
@@ -69,16 +68,16 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.text_input(label, key="campo_input", on_change=procesar_atleta)
     
     activos = [n for n in st.session_state.asistentes if st.session_state.estados.get(n, False)]
-    st.subheader(f"ATLETAS: {len(st.session_state.asistentes)} (Activos: {len(activos)})")
+    st.subheader(f"REGISTRADOS: {len(st.session_state.asistentes)} (Activos: {len(activos)})")
 
-    if st.button("🚀 REALIZAR SORTEO E IR A MESAS"):
+    if st.button("🚀 REALIZAR SORTEO Y VER MESAS"):
         if len(activos) >= 4:
             random.shuffle(activos)
             n_jug = (len(activos) // 4) * 4
             st.session_state.historial_completo.append({
                 'ronda': len(st.session_state.historial_completo) + 1,
                 'mesas': [activos[i:i+4] for i in range(0, n_jug, 4)],
-                'reposo': activos[n_jug:], # Captura de jugadores que no entran en mesa
+                'reposo': activos[n_jug:],
                 'listas': []
             })
             st.session_state.seccion_activa = "MESAS"
@@ -94,7 +93,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         if c4.button("🗑️", key=f"del_{n}"):
             st.session_state.asistentes.remove(n); st.rerun()
 
-# --- 4. SECCIÓN: MESAS (Con indicación de Reposo) ---
+# --- 4. SECCIÓN: MESAS (Reposo simplificado) ---
 elif st.session_state.seccion_activa == "MESAS":
     st.header("Organización de la Sala")
     if st.session_state.historial_completo:
@@ -106,21 +105,3 @@ elif st.session_state.seccion_activa == "MESAS":
             with cols[i % 4]:
                 st.markdown(f"""
                 <div class="mesa-container">
-                    <div class="jugador norte">{m[0]}</div>
-                    <div class="fila-central">
-                        <div class="jugador este-oeste">{m[1]}</div>
-                        <div class="mesa-centro"><p class="adel-text">ADEL</p><p class="n-mesa">{i+1}</p></div>
-                        <div class="jugador este-oeste">{m[3]}</div>
-                    </div>
-                    <div class="jugador sur">{m[2]}</div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        # Nueva área para indicar el Reposo solicitado
-        if r.get('reposo'):
-            st.markdown(f"""
-            <div class="reposo-box">
-                <h3 style="color: #CC0000; margin-top: 0;">💤 ATLETAS EN REPOSO:</h3>
-                <p style="font-size: 22px; font-weight: bold;">{', '.join(r['reposo'])}</p>
-            </div>
-            """, unsafe_allow_html=True)
