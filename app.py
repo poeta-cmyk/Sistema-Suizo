@@ -40,7 +40,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
     
     st.write("Meta del encuentro:")
-    st.session_state.meta_torneo = st.radio("Seleccione meta:", [100, 200], horizontal=True, label_visibility="collapsed")
+    st.session_state.meta_torneo = st.radio("Meta:", [100, 200], horizontal=True, label_visibility="collapsed")
     
     def procesar_atleta():
         nom = st.session_state.campo_input.upper().strip()
@@ -69,7 +69,6 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     activos = [n for n in st.session_state.asistentes if st.session_state.estados[n]]
     st.write(f"### ATLETAS: {len(st.session_state.asistentes)} (Activos: {len(activos)})")
 
-    # BOTÓN CON EL TEXTO EXACTO SOLICITADO
     if st.button("🚀 SORTEAR E IR A RONDA 1"):
         if len(activos) < 4:
             st.error("Se necesitan al menos 4 atletas activos.")
@@ -86,12 +85,9 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
                 recalcular_baremo(r)
             
             st.session_state.historial_completo.append({
-                'ronda': 1, 
-                'mesas': mesas, 
-                'reposo': reposo,
-                'listas': []
+                'ronda': 1, 'mesas': mesas, 'reposo': reposo, 'listas': []
             })
-            st.session_state.seccion_activa = "RESULTADOS"
+            st.session_state.seccion_activa = "MESAS"
             st.rerun()
 
     for n in st.session_state.asistentes:
@@ -104,7 +100,26 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         if c4.button("🗑️", key=f"del_{n}"):
             st.session_state.asistentes.remove(n); st.rerun()
 
-# --- 4. SECCIÓN: RESULTADOS ---
+# --- 4. SECCIÓN: MESAS (YA NO ESTÁ VACÍA) ---
+elif st.session_state.seccion_activa == "MESAS":
+    st.header("Distribución de Mesas y Sillas")
+    if not st.session_state.historial_completo:
+        st.warning("Debe realizar el sorteo en INSCRIPCIÓN.")
+    else:
+        r = st.session_state.historial_completo[-1]
+        st.subheader(f"RONDA {r['ronda']}")
+        
+        cols = st.columns(2)
+        for i, m in enumerate(r['mesas']):
+            with cols[i % 2].container(border=True):
+                st.write(f"### MESA {i+1}")
+                st.write(f"🪑 **Silla A:** {m[0]} | **Silla C:** {m[2]}")
+                st.write(f"🪑 **Silla B:** {m[1]} | **Silla D:** {m[3]}")
+        
+        if r['reposo']:
+            st.info(f"💤 EN REPOSO: {', '.join(r['reposo'])}")
+
+# --- 5. SECCIÓN: RESULTADOS ---
 elif st.session_state.seccion_activa == "RESULTADOS":
     st.header("Carga de Resultados Técnicos")
     if not st.session_state.historial_completo:
@@ -112,9 +127,6 @@ elif st.session_state.seccion_activa == "RESULTADOS":
     else:
         r = st.session_state.historial_completo[-1]
         st.subheader(f"RONDA {r['ronda']} (Meta: {st.session_state.meta_torneo} pts)")
-        
-        if r['reposo']:
-            st.info(f"💤 REPOSO: {', '.join(r['reposo'])} (+{st.session_state.meta_torneo/2} pts)")
 
         for i, m in enumerate(r['mesas']):
             if i in r['listas']:
@@ -131,4 +143,24 @@ elif st.session_state.seccion_activa == "RESULTADOS":
                     
                     if st.button(f"GUARDAR MESA {i+1}", key=f"btn_{i}"):
                         for j in [m[0], m[2]]:
-                            st.session
+                            st.session_state.puntos_favor[j] += val_ac
+                            st.session_state.puntos_contra[j] += val_bd
+                            if val_ac > val_bd: st.session_state.juegos_ganados[j] += 1
+                        for j in [m[1], m[3]]:
+                            st.session_state.puntos_favor[j] += val_bd
+                            st.session_state.puntos_contra[j] += val_ac
+                            if val_bd > val_ac: st.session_state.juegos_ganados[j] += 1
+                        for j in m: recalcular_baremo(j)
+                        r['listas'].append(i)
+                        st.rerun()
+
+# --- 6. SECCIÓN: RANKING ---
+elif st.session_state.seccion_activa == "RANKING":
+    st.header("Clasificación Oficial")
+    if st.session_state.asistentes:
+        tabla = sorted(st.session_state.asistentes, 
+                       key=lambda x: (st.session_state.juegos_ganados[x], st.session_state.efectividad[x]), 
+                       reverse=True)
+        st.table([{"Pos": i+1, "Atleta": n, "JJ": st.session_state.juegos_ganados[n], 
+                   "PF": st.session_state.puntos_favor[n], "PC": st.session_state.puntos_contra[n], 
+                   "Efectividad": f"{st.session_state.efectividad[n]:.4f}"} for i, n in enumerate(tabla)])
