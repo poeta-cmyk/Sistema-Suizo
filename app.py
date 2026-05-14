@@ -5,6 +5,7 @@ import random
 # --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
 
+# Inicialización robusta para evitar AttributeError
 if 'asistentes' not in st.session_state:
     st.session_state.update({
         'asistentes': [], 'estados': {}, 'juegos_ganados': {}, 'efectividad': {},
@@ -53,8 +54,10 @@ with st.sidebar:
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL")
     
-    # Selector de Meta
-    st.session_state.meta_encuentro = st.radio("Meta del encuentro:", [100, 200], index=1 if st.session_state.meta_encuentro == 200 else 0, horizontal=True)
+    # Selector de Meta del Encuentro
+    st.session_state.meta_encuentro = st.radio("Meta del encuentro:", [100, 200], 
+                                              index=1 if st.session_state.meta_encuentro == 200 else 0, 
+                                              horizontal=True)
 
     def procesar_atleta():
         nom = st.session_state.campo_input.upper().strip()
@@ -90,6 +93,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.session_state.seccion_activa = "MESAS"
             st.rerun()
 
+    # Listado de atletas con opciones de edición
     for n in sorted(st.session_state.asistentes):
         c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
         c1.text(f"• {n}")
@@ -112,42 +116,12 @@ elif st.session_state.seccion_activa == "MESAS":
         if r.get('reposo'):
             st.markdown(f'<div class="reposo-box"><h3 style="color: #CC0000; margin:0;">💤 EN REPOSO:</h3><p style="font-size: 20px; font-weight: bold;">{", ".join(r["reposo"])}</p></div>', unsafe_allow_html=True)
 
-# --- 5. SECCIÓN: RESULTADOS (Con Victoria por Reposo Calculada) ---
+# --- 5. SECCIÓN: RESULTADOS (Con Lógica de Reposo 50/100) ---
 elif st.session_state.seccion_activa == "RESULTADOS":
     st.header("Carga de Resultados")
     if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
-        pts_v = st.session_state.meta_encuentro // 2 # Regla de la Mitad
+        # Cálculo de puntos según la meta seleccionada
+        puntos_v = st.session_state.meta_encuentro // 2
 
-        if r.get('reposo') and not r.get('reposo_procesado'):
-            for p in r['reposo']:
-                st.session_state.juegos_ganados[p] += 1
-                st.session_state.puntos_favor[p] += pts_v
-                recalcular_baremo(p)
-            r['reposo_procesado'] = True
-
-        if r.get('reposo'):
-            for p in r['reposo']:
-                st.markdown(f'<div class="victoria-reposo">🏆 {p}: Gana por Reposo ({pts_v} a 0)</div>', unsafe_allow_html=True)
-            st.divider()
-
-        for i, m in enumerate(r['mesas']):
-            if i not in r['listas']:
-                with st.expander(f"MESA {i+1}", expanded=True):
-                    c1, c2 = st.columns(2)
-                    v1 = c1.number_input(f"Pareja A-C ({m[0]}/{m[2]}):", 0, 250, key=f"v1_{i}")
-                    v2 = c2.number_input(f"Pareja B-D ({m[1]}/{m[3]}):", 0, 250, key=f"v2_{i}")
-                    if st.button(f"GUARDAR MESA {i+1}", key=f"b_{i}"):
-                        for j in [m[0], m[2]]:
-                            st.session_state.puntos_favor[j] += v1; st.session_state.puntos_contra[j] += v2
-                            if v1 > v2: st.session_state.juegos_ganados[j] += 1
-                        for j in [m[1], m[3]]:
-                            st.session_state.puntos_favor[j] += v2; st.session_state.puntos_contra[j] += v1
-                            if v2 > v1: st.session_state.juegos_ganados[j] += 1
-                        for j in m: recalcular_baremo(j)
-                        r['listas'].append(i); st.rerun()
-
-# --- 6. SECCIÓN: RANKING ---
-elif st.session_state.seccion_activa == "RANKING":
-    st.header("Ranking General")
-    if st.session_state.asistentes
+        # Victoria automática por Reposo
