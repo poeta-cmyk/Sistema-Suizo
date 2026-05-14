@@ -5,7 +5,7 @@ import random
 # --- 1. CONFIGURACIÓN Y ESTADO INICIAL ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
 
-# CSS para simular la mesa física del esquema ADEL
+# CSS Ajustado: Mesas más grandes y fuentes más legibles
 st.markdown("""
     <style>
     .mesa-container {
@@ -13,27 +13,27 @@ st.markdown("""
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        margin-bottom: 20px;
-        padding: 10px;
+        margin-bottom: 40px; /* Más espacio entre filas */
+        padding: 15px;
     }
     .mesa-centro {
-        width: 100px;
-        height: 100px;
-        border: 4px solid black;
+        width: 140px;  /* Aumentado de 100px */
+        height: 140px; /* Aumentado de 100px */
+        border: 5px solid black;
         background-color: #FFFF00;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         position: relative;
-        z-index: 2;
+        box-shadow: 3px 3px 10px rgba(0,0,0,0.2);
     }
-    .adel-text { font-weight: bold; font-size: 20px; color: #003399; margin: 0; }
-    .n-mesa { font-weight: bold; font-size: 24px; color: #CC0000; margin: 0; }
+    .adel-text { font-weight: bold; font-size: 28px; color: #003399; margin: 0; line-height: 1; }
+    .n-mesa { font-weight: bold; font-size: 36px; color: #CC0000; margin: 0; line-height: 1; }
     
-    .jugador { font-weight: bold; font-size: 14px; text-align: center; }
-    .norte { margin-bottom: 5px; }
-    .sur { margin-top: 5px; }
+    .jugador { font-weight: bold; font-size: 18px; text-align: center; color: #333; }
+    .norte { margin-bottom: 10px; }
+    .sur { margin-top: 10px; }
     
     .fila-central {
         display: flex;
@@ -44,7 +44,7 @@ st.markdown("""
     .este-oeste {
         writing-mode: vertical-rl;
         text-orientation: mixed;
-        padding: 0 10px;
+        padding: 0 20px; /* Más separación lateral */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -71,7 +71,7 @@ with st.sidebar:
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.caption("Creado por Poeta")
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL")
-    st.session_state.meta_torneo = st.radio("Meta:", [100, 200], horizontal=True)
+    st.session_state.meta_torneo = st.radio("Meta del encuentro:", [100, 200], horizontal=True)
     
     def procesar_atleta():
         nom = st.session_state.campo_input.upper().strip()
@@ -89,67 +89,4 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             random.shuffle(activos)
             n_jug = (len(activos) // 4) * 4
             st.session_state.historial_completo.append({
-                'ronda': 1, 'mesas': [activos[i:i+4] for i in range(0, n_jug, 4)], 'reposo': activos[n_jug:], 'listas': []
-            })
-            st.session_state.seccion_activa = "MESAS"
-            st.rerun()
-
-    for n in st.session_state.asistentes:
-        c1, c2, c3 = st.columns([4, 1, 1])
-        c1.text(f"• {n}")
-        if c2.button("✅" if st.session_state.estados[n] else "❌", key=f"st_{n}"):
-            st.session_state.estados[n] = not st.session_state.estados[n]; st.rerun()
-        if c3.button("🗑️", key=f"del_{n}"):
-            st.session_state.asistentes.remove(n); st.rerun()
-
-# --- 4. SECCIÓN: MESAS (EL DISEÑO SOLICITADO) ---
-elif st.session_state.seccion_activa == "MESAS":
-    st.header("Organización de la Sala")
-    if st.session_state.historial_completo:
-        r = st.session_state.historial_completo[-1]
-        cols = st.columns(4)
-        for i, m in enumerate(r['mesas']):
-            with cols[i % 4]:
-                st.markdown(f"""
-                <div class="mesa-container">
-                    <div class="jugador norte">{m[0]}</div>
-                    <div class="fila-central">
-                        <div class="jugador este-oeste">{m[1]}</div>
-                        <div class="mesa-centro">
-                            <p class="adel-text">ADEL</p>
-                            <p class="n-mesa">{i+1}</p>
-                        </div>
-                        <div class="jugador este-oeste">{m[3]}</div>
-                    </div>
-                    <div class="jugador sur">{m[2]}</div>
-                </div>
-                """, unsafe_allow_html=True)
-        if r['reposo']: st.info(f"💤 REPOSO: {', '.join(r['reposo'])}")
-
-# --- 5. SECCIÓN: RESULTADOS ---
-elif st.session_state.seccion_activa == "RESULTADOS":
-    st.header("Resultados")
-    if st.session_state.historial_completo:
-        r = st.session_state.historial_completo[-1]
-        for i, m in enumerate(r['mesas']):
-            if i not in r['listas']:
-                with st.expander(f"MESA {i+1}: {m[0]}/{m[2]} vs {m[1]}/{m[3]}", expanded=True):
-                    c1, c2 = st.columns(2)
-                    v1 = c1.number_input(f"Pts A-C:", 0, 250, key=f"v1_{i}")
-                    v2 = c2.number_input(f"Pts B-D:", 0, 250, key=f"v2_{i}")
-                    if st.button(f"GUARDAR MESA {i+1}", key=f"b_{i}"):
-                        for j in [m[0], m[2]]:
-                            st.session_state.puntos_favor[j] += v1; st.session_state.puntos_contra[j] += v2
-                            if v1 > v2: st.session_state.juegos_ganados[j] += 1
-                        for j in [m[1], m[3]]:
-                            st.session_state.puntos_favor[j] += v2; st.session_state.puntos_contra[j] += v1
-                            if v2 > v1: st.session_state.juegos_ganados[j] += 1
-                        for j in m: recalcular_baremo(j)
-                        r['listas'].append(i); st.rerun()
-
-# --- 6. SECCIÓN: RANKING ---
-elif st.session_state.seccion_activa == "RANKING":
-    st.header("Ranking")
-    if st.session_state.asistentes:
-        t = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados[x], st.session_state.efectividad[x]), reverse=True)
-        st.table([{"Pos": i+1, "Atleta": n, "JJ": st.session_state.juegos_ganados[n], "PF": st.session_state.puntos_favor[n], "PC": st.session_state.puntos_contra[n], "Efec": f"{st.session_state.efectividad[n]:.4f}"} for i, n in enumerate(t)])
+                'ronda': 1, 'mesas': [activos[i:i+4] for i in range(0, n_jug,
