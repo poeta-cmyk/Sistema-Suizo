@@ -5,6 +5,20 @@ import random
 # --- 1. CONFIGURACIÓN Y ESTADO INICIAL ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
 
+# Inyección de CSS para que los recuadros de las mesas sean compactos
+st.markdown("""
+    <style>
+    [data-testid="stVerticalBlock"] > div:contains("MESA") {
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+        margin-bottom: 10px;
+    }
+    .silla-text { font-size: 14px; margin: 0; }
+    </style>
+    """, unsafe_allow_html=True)
+
 if 'asistentes' not in st.session_state:
     st.session_state.update({
         'asistentes': [], 
@@ -37,7 +51,7 @@ with st.sidebar:
 # --- 3. SECCIÓN: INSCRIPCIÓN ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.caption("Creado por Poeta")
-    st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
+    st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL")
     
     st.write("Meta del encuentro:")
     st.session_state.meta_torneo = st.radio("Meta:", [100, 200], horizontal=True, label_visibility="collapsed")
@@ -100,23 +114,27 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         if c4.button("🗑️", key=f"del_{n}"):
             st.session_state.asistentes.remove(n); st.rerun()
 
-# --- 4. SECCIÓN: MESAS (YA NO ESTÁ VACÍA) ---
+# --- 4. SECCIÓN: MESAS (SIMULACIÓN DE RECUADROS COMPACTOS) ---
 elif st.session_state.seccion_activa == "MESAS":
-    st.header("Distribución de Mesas y Sillas")
+    st.header("Organización de la Sala")
     if not st.session_state.historial_completo:
         st.warning("Debe realizar el sorteo en INSCRIPCIÓN.")
     else:
         r = st.session_state.historial_completo[-1]
         st.subheader(f"RONDA {r['ronda']}")
         
-        cols = st.columns(2)
+        # Uso de 4 columnas para maximizar espacio (caben 20 mesas fácilmente)
+        cols = st.columns(4)
         for i, m in enumerate(r['mesas']):
-            with cols[i % 2].container(border=True):
-                st.write(f"### MESA {i+1}")
-                st.write(f"🪑 **Silla A:** {m[0]} | **Silla C:** {m[2]}")
-                st.write(f"🪑 **Silla B:** {m[1]} | **Silla D:** {m[3]}")
+            with cols[i % 4].container(border=True):
+                st.markdown(f"**MESA {i+1}**")
+                st.markdown(f"<p class='silla-text'><b>A:</b> {m[0]}</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='silla-text'><b>B:</b> {m[1]}</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='silla-text'><b>C:</b> {m[2]}</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='silla-text'><b>D:</b> {m[3]}</p>", unsafe_allow_html=True)
         
         if r['reposo']:
+            st.divider()
             st.info(f"💤 EN REPOSO: {', '.join(r['reposo'])}")
 
 # --- 5. SECCIÓN: RESULTADOS ---
@@ -135,11 +153,8 @@ elif st.session_state.seccion_activa == "RESULTADOS":
                 with st.container(border=True):
                     st.write(f"### MESA {i+1}")
                     col1, col2 = st.columns(2)
-                    p1_label = f"{m[0]} (A) y {m[2]} (C)"
-                    p2_label = f"{m[1]} (B) y {m[3]} (D)"
-                    
-                    val_ac = col1.number_input(f"Puntos {p1_label}:", 0, 250, key=f"ac_{i}")
-                    val_bd = col2.number_input(f"Puntos {p2_label}:", 0, 250, key=f"bd_{i}")
+                    val_ac = col1.number_input(f"Puntos A-C ({m[0]}/{m[2]}):", 0, 250, key=f"ac_{i}")
+                    val_bd = col2.number_input(f"Puntos B-D ({m[1]}/{m[3]}):", 0, 250, key=f"bd_{i}")
                     
                     if st.button(f"GUARDAR MESA {i+1}", key=f"btn_{i}"):
                         for j in [m[0], m[2]]:
