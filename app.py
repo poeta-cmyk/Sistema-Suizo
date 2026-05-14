@@ -5,25 +5,12 @@ import random
 # --- 1. CONFIGURACIÓN Y ESTADO INICIAL ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
 
-# Inicialización segura de todas las variables de estado
 if 'asistentes' not in st.session_state:
-    st.session_state.asistentes = []
-if 'estados' not in st.session_state:
-    st.session_state.estados = {}
-if 'juegos_ganados' not in st.session_state:
-    st.session_state.juegos_ganados = {}
-if 'puntos_favor' not in st.session_state:
-    st.session_state.puntos_favor = {}
-if 'puntos_contra' not in st.session_state:
-    st.session_state.puntos_contra = {}
-if 'efectividad' not in st.session_state:
-    st.session_state.efectividad = {}
-if 'historial_completo' not in st.session_state:
-    st.session_state.historial_completo = []
-if 'seccion_activa' not in st.session_state:
-    st.session_state.seccion_activa = "INSCRIPCIÓN"
-if 'editando' not in st.session_state:
-    st.session_state.editando = None # Esto corrige el error de la imagen 931f9d
+    st.session_state.update({
+        'asistentes': [], 'estados': {}, 'juegos_ganados': {}, 'efectividad': {},
+        'puntos_contra': {}, 'puntos_favor': {}, 'historial_completo': [],
+        'seccion_activa': "INSCRIPCIÓN", 'editando': None
+    })
 
 # CSS: Diseño de mesas ADEL (Gran tamaño)
 st.markdown("""
@@ -35,26 +22,29 @@ st.markdown("""
     }
     .adel-text { font-weight: bold; font-size: 32px; color: #003399; margin: 0; }
     .n-mesa { font-weight: bold; font-size: 48px; color: #CC0000; margin: 0; }
-    .jugador { font-weight: bold; font-size: 20px; color: #000; }
+    .jugador { font-weight: bold; font-size: 20px; color: #000; text-align: center; }
     .norte { margin-bottom: 10px; } .sur { margin-top: 10px; }
     .fila-central { display: flex; align-items: center; justify-content: center; width: 100%; }
     .este-oeste { writing-mode: vertical-rl; text-orientation: mixed; padding: 0 25px; }
+    /* Estilo para el área de reposo */
+    .reposo-box {
+        background-color: #f0f2f6;
+        border-left: 5px solid #CC0000;
+        padding: 15px;
+        margin-top: 20px;
+        border-radius: 5px;
+    }
     </style>
     """, unsafe_allow_html=True)
-
-def recalcular_baremo(atleta):
-    pf, pc = st.session_state.puntos_favor.get(atleta, 0), st.session_state.puntos_contra.get(atleta, 0)
-    st.session_state.efectividad[atleta] = math.log10(max(pf, 1) / max(pc, 1)) + 1
 
 # --- 2. NAVEGACIÓN ---
 with st.sidebar:
     st.title("🏆 MENÚ ADEL")
-    # Navegación protegida contra errores de índice
     opciones = ["INSCRIPCIÓN", "MESAS", "RESULTADOS", "RANKING"]
     idx_actual = opciones.index(st.session_state.seccion_activa) if st.session_state.seccion_activa in opciones else 0
     st.session_state.seccion_activa = st.radio("SECCIÓN:", opciones, index=idx_actual)
 
-# --- 3. SECCIÓN: INSCRIPCIÓN (Con contador y edición) ---
+# --- 3. SECCIÓN: INSCRIPCIÓN ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL")
     
@@ -72,10 +62,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             elif nom not in st.session_state.asistentes:
                 st.session_state.asistentes.append(nom)
                 st.session_state.estados[nom] = True
-                st.session_state.juegos_ganados[nom] = 0
-                st.session_state.puntos_favor[nom] = 0
-                st.session_state.puntos_contra[nom] = 0
-                st.session_state.efectividad[nom] = 1.0
+                st.session_state.juegos_ganados[nom], st.session_state.puntos_favor[nom], st.session_state.puntos_contra[nom], st.session_state.efectividad[nom] = 0, 0, 0, 1.0
         st.session_state.campo_input = ""
 
     label = f"Corrigiendo a: {st.session_state.editando}" if st.session_state.editando else "Nombre del Atleta + ENTER:"
@@ -84,14 +71,15 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     activos = [n for n in st.session_state.asistentes if st.session_state.estados.get(n, False)]
     st.subheader(f"ATLETAS: {len(st.session_state.asistentes)} (Activos: {len(activos)})")
 
-    if st.button("🚀 REALIZAR SORTEAR E IR A RESULTADOS"):
+    if st.button("🚀 REALIZAR SORTEO E IR A MESAS"):
         if len(activos) >= 4:
             random.shuffle(activos)
             n_jug = (len(activos) // 4) * 4
             st.session_state.historial_completo.append({
                 'ronda': len(st.session_state.historial_completo) + 1,
                 'mesas': [activos[i:i+4] for i in range(0, n_jug, 4)],
-                'reposo': activos[n_jug:], 'listas': []
+                'reposo': activos[n_jug:], # Captura de jugadores que no entran en mesa
+                'listas': []
             })
             st.session_state.seccion_activa = "MESAS"
             st.rerun()
@@ -106,11 +94,13 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         if c4.button("🗑️", key=f"del_{n}"):
             st.session_state.asistentes.remove(n); st.rerun()
 
-# --- 4. SECCIÓN: MESAS ---
+# --- 4. SECCIÓN: MESAS (Con indicación de Reposo) ---
 elif st.session_state.seccion_activa == "MESAS":
     st.header("Organización de la Sala")
     if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
+        st.subheader(f"Distribución de la RONDA {r['ronda']}")
+        
         cols = st.columns(4)
         for i, m in enumerate(r['mesas']):
             with cols[i % 4]:
@@ -125,31 +115,12 @@ elif st.session_state.seccion_activa == "MESAS":
                     <div class="jugador sur">{m[2]}</div>
                 </div>
                 """, unsafe_allow_html=True)
-
-# --- 5. SECCIÓN: RESULTADOS ---
-elif st.session_state.seccion_activa == "RESULTADOS":
-    st.header("Carga de Resultados")
-    if st.session_state.historial_completo:
-        r = st.session_state.historial_completo[-1]
-        for i, m in enumerate(r['mesas']):
-            if i not in r['listas']:
-                with st.expander(f"MESA {i+1}", expanded=True):
-                    c1, c2 = st.columns(2)
-                    v1 = c1.number_input(f"A-C ({m[0]}/{m[2]}):", 0, 250, key=f"v1_{i}")
-                    v2 = c2.number_input(f"B-D ({m[1]}/{m[3]}):", 0, 250, key=f"v2_{i}")
-                    if st.button(f"GUARDAR MESA {i+1}", key=f"b_{i}"):
-                        for j in [m[0], m[2]]:
-                            st.session_state.puntos_favor[j] += v1; st.session_state.puntos_contra[j] += v2
-                            if v1 > v2: st.session_state.juegos_ganados[j] += 1
-                        for j in [m[1], m[3]]:
-                            st.session_state.puntos_favor[j] += v2; st.session_state.puntos_contra[j] += v1
-                            if v2 > v1: st.session_state.juegos_ganados[j] += 1
-                        for j in m: recalcular_baremo(j)
-                        r['listas'].append(i); st.rerun()
-
-# --- 6. SECCIÓN: RANKING ---
-elif st.session_state.seccion_activa == "RANKING":
-    st.header("Ranking General")
-    if st.session_state.asistentes:
-        t = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados[x], st.session_state.efectividad[x]), reverse=True)
-        st.table([{"Pos": i+1, "Atleta": n, "JJ": st.session_state.juegos_ganados[n], "PF": st.session_state.puntos_favor[n], "PC": st.session_state.puntos_contra[n], "Efec": f"{st.session_state.efectividad[n]:.4f}"} for i, n in enumerate(t)])
+        
+        # Nueva área para indicar el Reposo solicitado
+        if r.get('reposo'):
+            st.markdown(f"""
+            <div class="reposo-box">
+                <h3 style="color: #CC0000; margin-top: 0;">💤 ATLETAS EN REPOSO:</h3>
+                <p style="font-size: 22px; font-weight: bold;">{', '.join(r['reposo'])}</p>
+            </div>
+            """, unsafe_allow_html=True)
