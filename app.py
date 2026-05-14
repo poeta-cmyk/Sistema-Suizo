@@ -2,17 +2,30 @@ import streamlit as st
 import math
 import random
 
-# --- 1. CONFIGURACIÓN Y ESTADO INICIAL ---
+# --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
 
+# Inicialización robusta para evitar el AttributeError de la imagen 2d80ef
 if 'asistentes' not in st.session_state:
-    st.session_state.update({
-        'asistentes': [], 'estados': {}, 'juegos_ganados': {}, 'efectividad': {},
-        'puntos_contra': {}, 'puntos_favor': {}, 'historial_completo': [],
-        'seccion_activa': "INSCRIPCIÓN", 'editando': None
-    })
+    st.session_state.asistentes = []
+if 'estados' not in st.session_state:
+    st.session_state.estados = {}
+if 'juegos_ganados' not in st.session_state:
+    st.session_state.juegos_ganados = {}
+if 'puntos_favor' not in st.session_state:
+    st.session_state.puntos_favor = {}
+if 'puntos_contra' not in st.session_state:
+    st.session_state.puntos_contra = {}
+if 'efectividad' not in st.session_state:
+    st.session_state.efectividad = {}
+if 'historial_completo' not in st.session_state:
+    st.session_state.historial_completo = []
+if 'seccion_activa' not in st.session_state:
+    st.session_state.seccion_activa = "INSCRIPCIÓN"
+if 'editando' not in st.session_state:
+    st.session_state.editando = None
 
-# CSS: Diseño de mesas ADEL (Gran tamaño)
+# CSS: Diseño de mesas ADEL de gran tamaño
 st.markdown("""
     <style>
     .mesa-container { display: flex; flex-direction: column; align-items: center; margin-bottom: 50px; }
@@ -35,6 +48,10 @@ st.markdown("""
     }
     </style>
     """, unsafe_allow_html=True)
+
+def recalcular_baremo(atleta):
+    pf, pc = st.session_state.puntos_favor.get(atleta, 0), st.session_state.puntos_contra.get(atleta, 0)
+    st.session_state.efectividad[atleta] = math.log10(max(pf, 1) / max(pc, 1)) + 1
 
 # --- 2. NAVEGACIÓN ---
 with st.sidebar:
@@ -93,7 +110,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         if c4.button("🗑️", key=f"del_{n}"):
             st.session_state.asistentes.remove(n); st.rerun()
 
-# --- 4. SECCIÓN: MESAS (Reposo simplificado) ---
+# --- 4. SECCIÓN: MESAS ---
 elif st.session_state.seccion_activa == "MESAS":
     st.header("Organización de la Sala")
     if st.session_state.historial_completo:
@@ -103,5 +120,51 @@ elif st.session_state.seccion_activa == "MESAS":
         cols = st.columns(4)
         for i, m in enumerate(r['mesas']):
             with cols[i % 4]:
+                # Corrección del error SyntaxError (image_930d57.png)
                 st.markdown(f"""
                 <div class="mesa-container">
+                    <div class="jugador norte">{m[0]}</div>
+                    <div class="fila-central">
+                        <div class="jugador este-oeste">{m[1]}</div>
+                        <div class="mesa-centro"><p class="adel-text">ADEL</p><p class="n-mesa">{i+1}</p></div>
+                        <div class="jugador este-oeste">{m[3]}</div>
+                    </div>
+                    <div class="jugador sur">{m[2]}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        if r.get('reposo'):
+            st.markdown(f"""
+            <div class="reposo-box">
+                <h3 style="color: #CC0000; margin-top: 0;">💤 EN REPOSO:</h3>
+                <p style="font-size: 22px; font-weight: bold;">{', '.join(r['reposo'])}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+# --- 5. SECCIÓN: RESULTADOS ---
+elif st.session_state.seccion_activa == "RESULTADOS":
+    st.header("Carga de Resultados")
+    if st.session_state.historial_completo:
+        r = st.session_state.historial_completo[-1]
+        for i, m in enumerate(r['mesas']):
+            if i not in r['listas']:
+                with st.expander(f"MESA {i+1}", expanded=True):
+                    c1, c2 = st.columns(2)
+                    v1 = c1.number_input(f"A-C ({m[0]}/{m[2]}):", 0, 250, key=f"v1_{i}")
+                    v2 = c2.number_input(f"B-D ({m[1]}/{m[3]}):", 0, 250, key=f"v2_{i}")
+                    if st.button(f"GUARDAR MESA {i+1}", key=f"b_{i}"):
+                        for j in [m[0], m[2]]:
+                            st.session_state.puntos_favor[j] += v1; st.session_state.puntos_contra[j] += v2
+                            if v1 > v2: st.session_state.juegos_ganados[j] += 1
+                        for j in [m[1], m[3]]:
+                            st.session_state.puntos_favor[j] += v2; st.session_state.puntos_contra[j] += v1
+                            if v2 > v1: st.session_state.juegos_ganados[j] += 1
+                        for j in m: recalcular_baremo(j)
+                        r['listas'].append(i); st.rerun()
+
+# --- 6. SECCIÓN: RANKING ---
+elif st.session_state.seccion_activa == "RANKING":
+    st.header("Ranking General")
+    if st.session_state.asistentes:
+        t = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados[x], st.session_state.efectividad[x]), reverse=True)
+        st.table([{"Pos": i+1, "Atleta": n, "JJ": st.session_state.juegos_ganados[n], "PF": st.session_state.puntos_favor[n], "PC": st.session_state.puntos_contra[n], "Efec": f"{st.session_state.efectividad[n]:.4f}"} for i, n in enumerate(t)])
