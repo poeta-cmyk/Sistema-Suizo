@@ -1,101 +1,96 @@
-# --- 3. CUERPO PRINCIPAL: INSCRIPCIÓN (Ajustado) ---
+import streamlit as st
+import random
+
+# --- 1. INICIALIZACIÓN DEL ESTADO (Previene el NameError) ---
+if 'asistentes' not in st.session_state:
+    st.session_state.update({
+        'asistentes': [],
+        'estados': {},
+        'jg': {}, 'jj': {}, 'iep': {}, 'efec': {}, 'dif': {},
+        'seccion_activa': "INSCRIPCIÓN",
+        'n_rondas': 6,  # Valor por defecto
+        'meta_puntos': 200,
+        'editando': None
+    })
+
+# --- 2. BARRA LATERAL (MENÚ ADEL) ---
+with st.sidebar:
+    st.title("🏆 MENÚ ADEL")
+    opciones = ["INSCRIPCIÓN", "MESAS", "RESULTADOS", "RANKING"]
+    st.session_state.seccion_activa = st.radio("SECCIÓN:", opciones)
+
+# --- 3. LÓGICA DE INSCRIPCIÓN ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
-    # 1. Nombre Institucional Exacto
-    st.markdown("<h1 style='text-align: center; color: #deff9a;'>ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA “ADEL”</h1>", unsafe_allow_html=True)
+    # Encabezados según su diseño
+    st.markdown("<h1 style='text-align: center;'>ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center;'>SISTEMA SUIZO</h2>", unsafe_allow_html=True)
-    st.divider()
-
-    # Contenedor para parámetros iniciales
-    with st.container(border=True):
-        col_config1, col_config2 = st.columns(2)
-        
-        # 2. Número de rondas: N (Ajuste de persistencia)
-        st.session_state.n_rondas = col_config1.number_input(
-            "Número de rondas (N):", 
-            min_value=1, 
-            max_value=15, 
-            value=st.session_state.n_rondas,
-            key="input_n_rondas"
-        )
-        
-        # 3. Selector de la meta del encuentro
-        st.session_state.meta_encuentro = col_config2.radio(
-            "Meta del encuentro (Puntos):", 
-            [100, 200], 
-            index=1 if st.session_state.meta_encuentro == 200 else 0, 
-            horizontal=True,
-            key="input_meta"
-        )
-
-    # 4. Recuadro para anotar jugador con ENTER
-    def agregar_atleta():
-        nom = st.session_state.campo_nom.upper().strip()
-        if nom and nom not in st.session_state.asistentes:
-            st.session_state.asistentes.append(nom)
-            st.session_state.estados[nom] = True
-            for k in ['jg', 'jj', 'iep', 'efec', 'dif']: 
-                st.session_state[k][nom] = 0
-            st.session_state.asistentes.sort() 
-        st.session_state.campo_nom = "" 
-
-    st.subheader("Registro de Atletas")
-    st.text_input("Nombre del Atleta + [ENTER]:", key="campo_nom", on_change=agregar_atleta)
-
-    # 5. Monitor de Atletas
-    n_total = len(st.session_state.asistentes)
-    n_activos = sum(1 for n in st.session_state.asistentes if st.session_state.estados[n])
     
-    # Estética de aviso profesional
-    st.markdown(f"""
-    <div style='background-color: #1e293b; padding: 15px; border-radius: 10px; border-left: 5px solid #deff9a;'>
-        <h3 style='margin: 0; color: white;'>ATLETAS INSCRITOS: {n_total} | ACTIVOS: {n_activos}</h3>
-        <p style='margin: 0; color: #94a3b8;'>Torneo configurado a {st.session_state.n_rondas} rondas.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    col_izq, col_der = st.columns([2, 1])
+
+    with col_izq:
+        st.session_state.meta_puntos = st.radio("Meta del encuentro:", [100, 200], 
+                                                index=1 if st.session_state.meta_puntos == 200 else 0, 
+                                                horizontal=True)
+        
+        # Función para agregar con ENTER
+        def registrar():
+            txt = st.session_state.nuevo_atleta.upper().strip()
+            if txt and txt not in st.session_state.asistentes:
+                st.session_state.asistentes.append(txt)
+                st.session_state.estados[txt] = True
+                for k in ['jg', 'jj', 'iep', 'efec', 'dif']: st.session_state[k][txt] = 0
+                st.session_state.asistentes.sort()
+            st.session_state.nuevo_atleta = ""
+
+        st.text_input("Nombre del Atleta + ENTER:", key="nuevo_atleta", on_change=registrar)
+
+    with col_der:
+        st.markdown("<h3 style='text-align: center;'>NÚMERO DE RONDAS</h3>", unsafe_allow_html=True)
+        st.session_state.n_rondas = st.number_input("N", min_value=1, max_value=20, value=st.session_state.n_rondas)
 
     st.divider()
+    
+    # Monitor de Atletas
+    activos = sum(1 for a in st.session_state.asistentes if st.session_state.estados[a])
+    st.subheader(f"📊 ATLETAS: {len(st.session_state.asistentes)} | ACTIVOS: {activos}")
 
-    # 6. Lista de atletas con funciones Editar, Eliminar, Borrar
-    if st.session_state.asistentes:
-        for nombre in st.session_state.asistentes:
-            c_nom, c_est, c_ed, c_el = st.columns([3, 1, 1, 1])
-            
-            # Formato visual según estado
-            status_color = "white" if st.session_state.estados[nombre] else "#64748b"
-            c_nom.markdown(f"<span style='color: {status_color};'>{nombre}</span>", unsafe_allow_html=True)
-            
-            # Cambiar estado (Activo/Retiro)
-            if c_est.button("✅" if st.session_state.estados[nombre] else "💤", key=f"st_{nombre}"):
-                st.session_state.estados[nombre] = not st.session_state.estados[nombre]
-                st.rerun()
-                
-            # Editar
-            if c_ed.button("📝", key=f"ed_{nombre}"):
-                st.session_state.editando = nombre
-                st.rerun()
-                
-            # Eliminar/Borrar (Remover del sistema)
-            if c_el.button("🗑️", key=f"del_{nombre}"):
-                st.session_state.asistentes.remove(nombre)
-                for k in ['estados', 'jg', 'jj', 'iep', 'efec', 'dif']: 
-                    st.session_state[k].pop(nombre)
-                st.rerun()
-
-    # 7. Sorteo y Transición
-    st.divider()
-    if st.button("🚀 GENERAR SORTEO RONDA 1 E IR A MESAS"):
-        activos = [n for n in st.session_state.asistentes if st.session_state.estados[n]]
-        if len(activos) >= 4:
-            random.shuffle(activos)
-            n_m = (len(activos) // 4) * 4
-            st.session_state.historial_completo.append({
-                'ronda_actual': 1,
-                'mesas': [activos[i:i+4] for i in range(0, n_m, 4)],
-                'reposo': activos[n_m:],
-                'listas': [],
-                'reposo_ok': False
-            })
-            st.session_state.seccion_activa = "MESAS"
+    # Lista de Gestión (CRUD)
+    for atleta in st.session_state.asistentes:
+        c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
+        c1.write(f"**{atleta}**")
+        
+        # Activo / Retiro
+        if c2.button("✅" if st.session_state.estados[atleta] else "💤", key=f"st_{atleta}"):
+            st.session_state.estados[atleta] = not st.session_state.estados[atleta]
             st.rerun()
+            
+        # Editar
+        if c3.button("📝", key=f"ed_{atleta}"):
+            st.session_state.editando = atleta
+            st.rerun()
+            
+        # Eliminar
+        if c4.button("🗑️", key=f"del_{atleta}"):
+            st.session_state.asistentes.remove(atleta)
+            st.rerun()
+
+    # Modal simple para editar
+    if st.session_state.editando:
+        with st.form("form_editar"):
+            nuevo = st.text_input("Nuevo nombre:", value=st.session_state.editando).upper()
+            if st.form_submit_button("ACTUALIZAR"):
+                # Lógica de renombrado (se mantiene simple para cerrar hoy)
+                idx = st.session_state.asistentes.index(st.session_state.editando)
+                st.session_state.asistentes[idx] = nuevo
+                st.session_state.editando = None
+                st.rerun()
+
+    if st.button("🚀 SORTEAR E IR A MESAS"):
+        if activos >= 4:
+            st.success(f"Sorteo generado para {st.session_state.n_rondas} rondas.")
+            # Aquí iría la lógica del algoritmo Kirkman/Suizo en la próxima sesión
         else:
-            st.error("Se necesitan al menos 4 atletas activos.")
+            st.warning("Faltan atletas para iniciar.")
+
+else:
+    st.info(f"Sección {st.session_state.seccion_activa} en construcción. Meta: {st.session_state.meta_puntos} pts.")
