@@ -3,7 +3,6 @@ import streamlit as st
 # --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
 st.set_page_config(layout="wide", page_title="ADEL SISTEMA SUIZO")
 
-# Inicializamos el estado para evitar errores de variables perdidas
 if 'asistentes' not in st.session_state:
     st.session_state.update({
         'asistentes': [],
@@ -44,52 +43,51 @@ if st.session_state.seccion == "INSCRIPCIÓN":
 
     st.divider()
     
-    # Monitor de Conteo
     total = len(st.session_state.asistentes)
     activos = sum(1 for a in st.session_state.asistentes if st.session_state.estados[a])
     st.markdown(f"### 📋 INSCRITOS: {total} | ✅ ACTIVOS: {activos}")
 
-    # --- 4. LA LISTA DE ATLETAS (Garantizada) ---
-    if not st.session_state.asistentes:
-        st.info("Nómina vacía. Ingrese nombres arriba para comenzar.")
-    else:
-        # Encabezados de tabla
+    # --- 4. LA LISTA DE ATLETAS (Corrección de visibilidad) ---
+    if st.session_state.asistentes:
+        # Encabezados
         h1, h2, h3, h4 = st.columns([4, 1, 1, 1])
         h1.write("**NOMBRE DEL ATLETA**")
         h2.write("**ESTADO**")
         h3.write("**EDITAR**")
         h4.write("**BORRAR**")
+        st.divider()
 
         for atleta in st.session_state.asistentes:
             c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
             
-            # Nombre
-            color = "white" if st.session_state.estados[atleta] else "#64748b"
-            c1.markdown(f"<p style='font-size: 1.1rem; color: {color}; margin: 5px 0;'>{atleta}</p>", unsafe_allow_html=True)
-            
-            # Botón Estado (Check)
+            # MOSTRAR EL NOMBRE (Esto era lo que faltaba)
+            # Usamos st.info o un markdown simple para asegurar visibilidad
+            if st.session_state.estados[atleta]:
+                c1.markdown(f"**{atleta}**")
+            else:
+                c1.markdown(f"~~{atleta}~~ (Retirado)")
+
+            # Botón Estado
             if c2.button("✅" if st.session_state.estados[atleta] else "💤", key=f"st_{atleta}"):
                 st.session_state.estados[atleta] = not st.session_state.estados[atleta]
                 st.rerun()
                 
-            # Botón Editar (Lápiz)
+            # Botón Editar
             if c3.button("📝", key=f"ed_{atleta}"):
                 st.session_state.editando = atleta
                 st.rerun()
                 
-            # Botón Borrar (Papelera)
+            # Botón Borrar
             if c4.button("🗑️", key=f"del_{atleta}"):
                 st.session_state.asistentes.remove(atleta)
                 st.session_state.estados.pop(atleta)
                 st.rerun()
 
-    # Formulario para editar si se activa
+    # Formulario para editar
     if st.session_state.editando:
-        st.divider()
-        with st.container(border=True):
-            st.warning(f"Corrigiendo a: {st.session_state.editando}")
-            nuevo_nom = st.text_input("Nuevo nombre:", value=st.session_state.editando).upper()
-            if st.button("GUARDAR CAMBIO"):
+        with st.form("form_editar"):
+            nuevo_nom = st.text_input("Corregir nombre:", value=st.session_state.editando).upper()
+            if st.form_submit_button("GUARDAR"):
                 idx = st.session_state.asistentes.index(st.session_state.editando)
                 st.session_state.asistentes[idx] = nuevo_nom
                 st.session_state.estados[nuevo_nom] = st.session_state.estados.pop(st.session_state.editando)
