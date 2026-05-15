@@ -32,7 +32,7 @@ if 'seccion_activa' not in st.session_state:
 if 'editando' not in st.session_state:
     st.session_state.editando = None
 
-# --- CSS: FORMATO DE MESA CUADRADA SIMÉTRICA ---
+# --- CSS: MESAS CUADRADAS SIMÉTRICAS ---
 st.markdown("""
     <style>
     .mesa-container {
@@ -110,14 +110,14 @@ with st.sidebar:
     idx = opc.index(act) if act in opc else 0
     st.session_state.seccion_activa = st.radio("SECCIÓN:", opc, index=idx)
 
-# --- 3. SECCIÓN: INSCRIPCIÓN (INTEGRAMENTE CONSERVADA) ---
+# --- 3. SECCIÓN: INSCRIPCIÓN (100% INTACTA) ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.markdown(
         "<h2 style='text-align:center;'>SISTEMA SUIZO ADEL</h2>", 
         unsafe_allow_html=True
     )
     
-    # Meta del encuentro (100 / 200 puntos)
+    # Meta del encuentro (100 / 200 puntos) - Fiel a su pantalla
     st.radio(
         "Meta del encuentro:", 
         [100, 200], 
@@ -166,4 +166,19 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.session_state.historial_completo.append({
                 'ronda': len(st.session_state.historial_completo) + 1,
                 'mesas': [at_act[i:i+4] for i in range(0, lim, 4)],
-                'reposo': at_
+                'reposo': at_act[lim:],
+                'listas': []
+            })
+            st.session_state.seccion_activa = "MESAS"
+            st.rerun()
+        else:
+            st.error("Mínimo 4 atletas activos.")
+
+    for n in sorted(st.session_state.asistentes):
+        c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
+        c1.text(f"• {n}")
+        
+        if c2.button("✅" if st.session_state.estados[n] else "❌", key=f"st_{n}"):
+            st.session_state.estados[n] = not st.session_state.estados[n]
+            st.rerun()
+        if c3.button("📝
