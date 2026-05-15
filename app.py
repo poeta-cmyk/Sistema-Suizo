@@ -181,4 +181,110 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         if c2.button("✅" if st.session_state.estados[n] else "❌", key=f"st_{n}"):
             st.session_state.estados[n] = not st.session_state.estados[n]
             st.rerun()
-        if c3.button("📝
+        if c3.button("📝", key=f"ed_{n}"):
+            st.session_state.editando = n
+            st.rerun()
+        if c4.button("🗑️", key=f"del_{n}"):
+            st.session_state.asistentes.remove(n)
+            st.session_state.estados.pop(n, None)
+            st.rerun()
+
+# --- 4. SECCIÓN: MESAS (DISEÑO PERFECTAMENTE CUADRADO) ---
+elif st.session_state.seccion_activa == "MESAS":
+    st.header("Organización de la Sala")
+    if st.session_state.historial_completo:
+        r = st.session_state.historial_completo[-1]
+        st.subheader(f"Ronda Actual: {r['ronda']}")
+        cols = st.columns(4)
+        for i, m in enumerate(r['mesas']):
+            with cols[i % 4]:
+                st.markdown(f"""
+                <div class="mesa-container">
+                    <div class="jugador norte">{m[0]}</div>
+                    <div class="fila-central">
+                        <div class="jugador este-oeste">{m[1]}</div>
+                        <div class="mesa-centro">
+                            <p class="adel-text">ADEL</p>
+                            <p class="n-mesa">{i+1}</p>
+                        </div>
+                        <div class="jugador este-oeste">{m[3]}</div>
+                    </div>
+                    <div class="jugador sur">{m[2]}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        if r.get('reposo'):
+            st.markdown(f"""
+            <div class="reposo-box">
+                <h4>💤 EN REPOSO:</h4>
+                <p><b>{', '.join(r['reposo'])}</b></p>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("Genere el sorteo en Inscripción.")
+
+# --- 5. SECCIÓN: RESULTADOS (COMPACTO VERTICAL) ---
+elif st.session_state.seccion_activa == "RESULTADOS":
+    st.header("Carga de Puntuaciones")
+    if st.session_state.historial_completo:
+        r = st.session_state.historial_completo[-1]
+        for i, m in enumerate(r['mesas']):
+            if i not in r['listas']:
+                with st.expander(f"MESA {i+1}", expanded=True):
+                    c1, c2 = st.columns(2)
+                    
+                    lbl_ac = f"A-C ({m[0]}/{m[2]}):"
+                    lbl_bd = f"B-D ({m[1]}/{m[3]}):"
+                    
+                    v1 = c1.number_input(lbl_ac, 0, 250, key=f"v1_{i}")
+                    v2 = c2.number_input(lbl_bd, 0, 250, key=f"v2_{i}")
+                    
+                    if st.button(f"GUARDAR MESA {i+1}", key=f"b_{i}"):
+                        for j in [m[0], m[2]]:
+                            st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + v1
+                            st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + v2
+                            if v1 > v2:
+                                cur_jg = st.session_state.juegos_ganados.get(j, 0)
+                                st.session_state.juegos_ganados[j] = cur_jg + 1
+                                
+                        for j in [m[1], m[3]]:
+                            st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + v2
+                            st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + v1
+                            if v2 > v1:
+                                cur_jg = st.session_state.juegos_ganados.get(j, 0)
+                                st.session_state.juegos_ganados[j] = cur_jg + 1
+                                
+                        for j in m:
+                            recalcular_baremo(j)
+                            
+                        r['listas'].append(i)
+                        st.rerun()
+    else:
+        st.info("No hay rondas activas.")
+
+# --- 6. SECCIÓN: RANKING (ANTI-RECORTE) ---
+elif st.session_state.seccion_activa == "RANKING":
+    st.header("Ranking General")
+    if st.session_state.asistentes:
+        jg = st.session_state.juegos_ganados
+        ef = st.session_state.efectividad
+        
+        t = sorted(
+            st.session_state.asistentes, 
+            key=lambda x: (jg.get(x, 0), ef.get(x, 1.0)), 
+            reverse=True
+        )
+        
+        db = []
+        for idx, n in enumerate(t):
+            fila = {
+                "Pos": idx + 1,
+                "Atleta": n,
+                "JJ": jg.get(n, 0),
+                "PF": st.session_state.puntos_favor.get(n, 0),
+                "PC": st.session_state.puntos_contra.get(n, 0),
+                "Efec": f"{ef.get(n, 1.0):.4f}"
+            }
+            db.append(fila)
+            
+        st.table(db)
+    
