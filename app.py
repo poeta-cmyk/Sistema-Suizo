@@ -25,36 +25,59 @@ if 'seccion_activa' not in st.session_state:
 if 'editando' not in st.session_state:
     st.session_state.editando = None
 
-# --- SU HERMOSO DISEÑO CSS: Estética Institucional ADEL ---
+# --- CSS REFORMADO: MESAS CUADRADAS Y SIMÉTRICAS ---
 st.markdown("""
     <style>
     .mesa-container {
-        display: flex; flex-direction: column; align-items: center; margin-bottom: 50px; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        margin-bottom: 50px; 
     }
     .mesa-centro {
-        width: 160px; height: 160px; border: 6px solid black; background-color: #FFFF00;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        width: 160px; 
+        height: 160px; 
+        border: 6px solid black; 
+        background-color: #FFFF00;
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center;
     }
     .adel-text {
-        font-weight: bold; font-size: 32px; color: #003399; margin: 0; 
+        font-weight: bold; 
+        font-size: 32px; 
+        color: #003399; 
+        margin: 0; 
     }
     .n-mesa {
-        font-weight: bold; font-size: 48px; color: #CC0000; margin: 0; 
+        font-weight: bold; 
+        font-size: 48px; 
+        color: #CC0000; 
+        margin: 0; 
     }
     .jugador {
-        font-weight: bold; font-size: 20px; color: #000; text-align: center; 
+        font-weight: bold; 
+        font-size: 20px; 
+        color: #000; 
+        text-align: center; 
     }
     .norte {
-        margin-bottom: 10px; 
+        margin-bottom: 15px; 
     } 
     .sur { 
-        margin-top: 10px; 
+        margin-top: 15px; 
     }
     .fila-central {
-        display: flex; align-items: center; justify-content: center; width: 100%; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        width: 100%; 
     }
     .este-oeste {
-        writing-mode: vertical-rl; text-orientation: mixed; padding: 0 25px; 
+        writing-mode: vertical-rl; 
+        text-orientation: mixed; 
+        padding: 0 30px; 
     }
     .reposo-box {
         background-color: #f0f2f6;
@@ -77,7 +100,7 @@ with st.sidebar:
     idx_actual = opciones.index(st.session_state.seccion_activa) if st.session_state.seccion_activa in opciones else 0
     st.session_state.seccion_activa = st.radio("SECCIÓN:", opciones, index=idx_actual)
 
-# --- 3. SECCIÓN: INSCRIPCIÓN (SU HOJA SAGRADA - 100% INTACTA) ---
+# --- 3. SECCIÓN: INSCRIPCIÓN (100% INTACTA) ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.markdown("<h1 style='text-align: center;'>ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA “ADEL”</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center;'>SISTEMA SUIZO</h2>", unsafe_allow_html=True)
@@ -106,7 +129,6 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     activos = [n for n in st.session_state.asistentes if st.session_state.estados.get(n, False)]
     st.subheader(f"REGISTRADOS: {len(st.session_state.asistentes)} (Activos: {len(activos)})")
 
-    # Botón de acción: Genera el sorteo y hace la transición directa
     if st.button("🚀 REALIZAR SORTEO Y VER MESAS"):
         if len(activos) >= 4:
             random.shuffle(activos)
@@ -122,7 +144,6 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         else:
             st.error("Se necesitan al menos 4 atletas activos para generar las mesas.")
 
-    # Lista de gestión del CRUD en Inscripción
     for n in sorted(st.session_state.asistentes):
         c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
         c1.text(f"• {n}")
@@ -136,7 +157,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.session_state.asistentes.remove(n)
             st.rerun()
 
-# --- 4. SECCIÓN: MESAS (SU DISEÑO VISUAL ORIGINAL COMPLETAMENTE INTEGRADO) ---
+# --- 4. SECCIÓN: MESAS (CON RECUADRO CUADRADO PERFECTO) ---
 elif st.session_state.seccion_activa == "MESAS":
     st.markdown("<h1 style='text-align: center;'>Organización de la Sala</h1>", unsafe_allow_html=True)
     st.divider()
@@ -145,7 +166,6 @@ elif st.session_state.seccion_activa == "MESAS":
         r = st.session_state.historial_completo[-1]
         st.subheader(f"Distribución de la RONDA {r['ronda']}")
         
-        # Mapeo en cuadrícula de 4 columnas usando su CSS personalizado
         cols = st.columns(4)
         for i, m in enumerate(r['mesas']):
             with cols[i % 4]:
@@ -154,14 +174,16 @@ elif st.session_state.seccion_activa == "MESAS":
                     <div class="jugador norte">{m[0]}</div>
                     <div class="fila-central">
                         <div class="jugador este-oeste">{m[1]}</div>
-                        <div class="mesa-centro"><p class="adel-text">ADEL</p><p class="n-mesa">{i+1}</p></div>
+                        <div class="mesa-centro">
+                            <p class="adel-text">ADEL</p>
+                            <p class="n-mesa">{i+1}</p>
+                        </div>
                         <div class="jugador este-oeste">{m[3]}</div>
                     </div>
                     <div class="jugador sur">{m[2]}</div>
                 </div>
                 """, unsafe_allow_html=True)
         
-        # Bloque de Repeso/Reposo si el número es impar
         if r.get('reposo'):
             st.markdown(f"""
             <div class="reposo-box">
@@ -204,5 +226,4 @@ elif st.session_state.seccion_activa == "RANKING":
     st.markdown("<h1 style='text-align: center;'>Ranking General ADEL</h1>", unsafe_allow_html=True)
     st.divider()
     if st.session_state.asistentes:
-        t = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados[x], st.session_state.efectividad[x]), reverse=True)
-        st.table([{"Pos": i+1, "Atleta": n, "JJ": st.session_state.juegos_ganados[n], "PF": st.session_state.puntos_favor[n], "PC": st.session_state.puntos_contra[n], "Efec": f"{st.session_state.efectividad[n]:.4f}"} for i, n in enumerate(t)])
+        t = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados[x], st.session_
