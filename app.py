@@ -1,92 +1,89 @@
 import streamlit as st
-import math
 import random
 
-# --- 1. CONFIGURACIÓN E INICIALIZACIÓN (Obligatorio al inicio) ---
-st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
+# --- 1. CONFIGURACIÓN E INICIALIZACIÓN ---
+st.set_page_config(layout="wide", page_title="SISTEMA SUIZO ADEL")
 
-# Inicializamos la memoria del sistema para evitar el NameError
 if 'asistentes' not in st.session_state:
     st.session_state.update({
-        'asistentes': [], 
-        'estados': {}, 
-        'jg': {}, 
-        'jj': {}, 
-        'iep': {}, 
-        'efec': {}, 
-        'dif': {}, 
-        'editando': None,
-        'historial_completo': [], 
-        'seccion_activa': "INSCRIPCIÓN", 
-        'meta_encuentro': 200
+        'asistentes': [], 'estados': {}, 'jg': {}, 'jj': {}, 
+        'iep': {}, 'efec': {}, 'dif': {}, 'editando': None,
+        'historial_completo': [], 'seccion_activa': "INSCRIPCIÓN", 
+        'meta_encuentro': 200, 'n_rondas': 4
     })
 
-# --- 2. FUNCIONES TÉCNICAS ADEL ---
-def actualizar_baremos_adel(atleta):
-    jg = st.session_state.jg.get(atleta, 0)
-    jj = st.session_state.jj.get(atleta, 0)
-    st.session_state.iep[atleta] = (jg / jj * 1000) if jj > 0 else 0
-
-# --- 3. NAVEGACIÓN LATERAL ---
+# --- 2. NAVEGACIÓN LATERAL (MENÚ ADEL) ---
 with st.sidebar:
     st.title("🏆 MENÚ ADEL")
     opciones = ["INSCRIPCIÓN", "MESAS", "RESULTADOS", "RANKING"]
-    # Esta línea ya no dará error porque la memoria se inicializó arriba
-    st.session_state.seccion_activa = st.radio("SECCIÓN:", opciones, 
+    st.session_state.seccion_activa = st.radio("VENTANAS:", opciones, 
                                               index=opciones.index(st.session_state.seccion_activa))
 
-# --- 4. SECCIÓN: INSCRIPCIÓN (Con Monitor de Atletas y Activos) ---
+# --- 3. CUERPO PRINCIPAL: INSCRIPCIÓN ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
-    st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL")
-    
-    st.session_state.meta_encuentro = st.radio("Meta del encuentro:", [100, 200], 
-                                              index=1 if st.session_state.meta_encuentro == 200 else 0, 
-                                              horizontal=True)
+    # 1. Nombre Institucional
+    st.markdown("<h1 style='text-align: center;'>ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA “ADEL”</h1>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>SISTEMA SUIZO</h2>", unsafe_allow_html=True)
+    st.divider()
 
+    col_config1, col_config2 = st.columns(2)
+    
+    # 2. Número de rondas: N
+    st.session_state.n_rondas = col_config1.number_input("Número de rondas (N):", min_value=1, max_value=20, value=st.session_state.n_rondas)
+    
+    # 3. Selector de la meta del encuentro
+    st.session_state.meta_encuentro = col_config2.radio("Meta del encuentro (Puntos):", [100, 200], 
+                                                       index=1 if st.session_state.meta_encuentro == 200 else 0, 
+                                                       horizontal=True)
+
+    # 4. Recuadro para anotar jugador con ENTER
     def agregar_atleta():
         nom = st.session_state.campo_nom.upper().strip()
         if nom and nom not in st.session_state.asistentes:
             st.session_state.asistentes.append(nom)
             st.session_state.estados[nom] = True
-            for k in ['jg', 'jj', 'iep', 'efec', 'dif']:
-                st.session_state[k][nom] = 0
-            st.session_state.asistentes.sort()
-        st.session_state.campo_nom = ""
+            for k in ['jg', 'jj', 'iep', 'efec', 'dif']: st.session_state[k][nom] = 0
+            st.session_state.asistentes.sort() # Orden alfabético automático
+        st.session_state.campo_nom = "" # Blanquea para el siguiente
 
-    st.text_input("Nombre del Atleta + ENTER:", key="campo_nom", on_change=agregar_atleta)
+    st.text_input("Ingrese nombre del atleta y presione ENTER:", key="campo_nom", on_change=agregar_atleta)
 
-    # --- MONITOR SOLICITADO: ATLETAS Y ACTIVOS ---
-    total_inscritos = len(st.session_state.asistentes)
-    total_activos = sum(1 for n in st.session_state.asistentes if st.session_state.estados[n])
-    
-    st.subheader(f"📊 ATLETAS: {total_inscritos} | ACTIVOS: {total_activos}")
+    # 5. Aviso de atletas inscritos y activos
+    n_total = len(st.session_state.asistentes)
+    n_activos = sum(1 for n in st.session_state.asistentes if st.session_state.estados[n])
+    st.info(f"📋 ATLETAS INSCRITOS: {n_total} | ✅ ATLETAS ACTIVOS: {n_activos}")
+
     st.divider()
 
-    # Listado de Atletas con botones
+    # 6. Lista de atletas con Eliminar, Editar o Borrar
+    st.subheader("Nómina de Atletas")
     for nombre in st.session_state.asistentes:
-        col_nom, col_check, col_edit, col_del = st.columns([3, 1, 1, 1])
+        c_nom, c_est, c_ed, c_el = st.columns([3, 1, 1, 1])
         
-        status_label = "👤" if st.session_state.estados[nombre] else "❌ (RETIRADO)"
-        col_nom.markdown(f"**{nombre}** {status_label}")
+        c_nom.write(f"**{nombre}**")
         
-        # Botón para Activar/Retirar (Actualiza el conteo de ACTIVOS)
-        if col_check.button("✅" if st.session_state.estados[nombre] else "💤", key=f"st_{nombre}"):
+        # Botón Estado (Para Retiros)
+        if c_est.button("✅" if st.session_state.estados[nombre] else "💤", key=f"st_{nombre}", help="Activo/Retirado"):
             st.session_state.estados[nombre] = not st.session_state.estados[nombre]
             st.rerun()
-        
-        if col_edit.button("📝", key=f"ed_{nombre}"):
+            
+        # Botón Editar
+        if c_ed.button("📝", key=f"ed_{nombre}", help="Editar nombre"):
             st.session_state.editando = nombre
             st.rerun()
             
-        if col_del.button("🗑️", key=f"del_{nombre}"):
+        # Botón Eliminar (Borrar por completo)
+        if c_el.button("🗑️", key=f"del_{nombre}", help="Eliminar atleta"):
             st.session_state.asistentes.remove(nombre)
+            # Limpiar sus datos
+            for k in ['estados', 'jg', 'jj', 'iep', 'efec', 'dif']: st.session_state[k].pop(nombre)
             st.rerun()
 
-    # Edición de nombres
+    # Modal de Edición
     if st.session_state.editando:
         with st.container(border=True):
             nuevo_n = st.text_input("Corregir nombre:", value=st.session_state.editando).upper()
-            if st.button("ACEPTAR"):
+            if st.button("GUARDAR CAMBIO"):
                 v = st.session_state.editando
                 idx = st.session_state.asistentes.index(v)
                 st.session_state.asistentes[idx] = nuevo_n
@@ -96,7 +93,10 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
                 st.session_state.asistentes.sort()
                 st.rerun()
 
-    if st.button("🚀 SORTEAR E IR A MESAS"):
+    st.divider()
+
+    # 7. Botón de Sorteo y remisión a MESAS
+    if st.button("🚀 GENERAR SORTEO RONDA 1 E IR A MESAS"):
         activos = [n for n in st.session_state.asistentes if st.session_state.estados[n]]
         if len(activos) >= 4:
             random.shuffle(activos)
@@ -105,58 +105,26 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
                 'mesas': [activos[i:i+4] for i in range(0, n_m, 4)],
                 'reposo': activos[n_m:], 'listas': [], 'reposo_ok': False
             })
-            st.session_state.seccion_activa = "MESAS"; st.rerun()
+            st.session_state.seccion_activa = "MESAS"
+            st.rerun()
+        else:
+            st.error("Se necesitan al menos 4 atletas activos para el sorteo.")
 
-# --- 5. SECCIÓN: RESULTADOS (Cálculo de Efectividad ADEL) ---
-elif st.session_state.seccion_activa == "RESULTADOS":
-    st.header("Carga de Resultados")
+# --- SECCIONES RESTANTES (Mantenidas para estructura) ---
+elif st.session_state.seccion_activa == "MESAS":
+    st.header("Distribución de Mesas - Ronda 1")
     if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
-        meta = st.session_state.meta_encuentro
-        
-        # Reposo: Victoria automática (IEP=1000, EFEC=Meta/2)
-        if r.get('reposo') and not r.get('reposo_ok'):
-            for p in r['reposo']:
-                st.session_state.jj[p] += 1; st.session_state.jg[p] += 1
-                st.session_state.efec[p] += (meta // 2)
-                actualizar_baremos_adel(p)
-            r['reposo_ok'] = True
-
         for i, m in enumerate(r['mesas']):
-            if i not in r['listas']:
-                with st.expander(f"MESA {i+1}", expanded=True):
-                    c1, c2 = st.columns(2)
-                    v1 = c1.number_input(f"Pareja A-C ({m[0]}/{m[2]}):", 0, 300, key=f"v1_{i}")
-                    v2 = c2.number_input(f"Pareja B-D ({m[1]}/{m[3]}):", 0, 300, key=f"v2_{i}")
-                    if st.button(f"GUARDAR MESA {i+1}", key=f"b_{i}"):
-                        gan, perd, p_gan, p_perd = ([m[0], m[2]], [m[1], m[3]], v1, v2) if v1 > v2 else ([m[1], m[3]], [m[0], m[2]], v2, v1)
-                        for p in gan:
-                            st.session_state.jj[p] += 1; st.session_state.jg[p] += 1
-                            st.session_state.efec[p] += (meta - p_perd)
-                            st.session_state.dif[p] += (p_gan - p_perd)
-                            actualizar_baremos_adel(p)
-                        for p in perd:
-                            st.session_state.jj[p] += 1
-                            st.session_state.efec[p] -= (meta - p_perd)
-                            st.session_state.dif[p] -= (p_gan - p_perd)
-                            actualizar_baremos_adel(p)
-                        r['listas'].append(i); st.rerun()
+            st.write(f"**MESA {i+1}:** {m[0]} - {m[2]} vs {m[1]} - {m[3]}")
+        if r['reposo']: st.warning(f"En reposo: {', '.join(r['reposo'])}")
+    else:
+        st.info("Esperando el sorteo de la Ronda 1...")
 
-# --- 6. SECCIÓN: RANKING (Según Modelo de Imagen) ---
+elif st.session_state.seccion_activa == "RESULTADOS":
+    st.header("Carga de Resultados")
+    st.info("Módulo en desarrollo para la siguiente fase.")
+
 elif st.session_state.seccion_activa == "RANKING":
-    st.header("Ranking General")
-    if st.session_state.asistentes:
-        orden = sorted(st.session_state.asistentes, 
-                       key=lambda x: (st.session_state.iep[x], st.session_state.efec[x], st.session_state.dif[x]), 
-                       reverse=True)
-        
-        # Tabla limpia: IEP, EFEC, DIF
-        datos_tabla = []
-        for i, n in enumerate(orden):
-            datos_tabla.append({
-                "Pos": i + 1, "Atleta": n,
-                "IEP": int(st.session_state.iep[n]),
-                "EFEC": st.session_state.efec[n],
-                "DIF": st.session_state.dif[n]
-            })
-        st.table(datos_tabla)
+    st.header("Ranking General ADEL")
+    st.info("El ranking se actualizará al cargar resultados.")
