@@ -17,7 +17,7 @@ if 'seccion_activa' not in st.session_state:
 if 'editando' not in st.session_state:
     st.session_state.editando = None
 
-# --- DISEÑO CSS REFORMADO: IGUALDAD DE ANCHO Y ALTO ABSOLUTO ---
+# --- DISEÑO CSS CORREGIDO: CUADRADO PERFECTO SIN DEFORMACIÓN ---
 st.markdown("""
     <style>
     .mesa-container {
@@ -29,15 +29,17 @@ st.markdown("""
     .mesa-centro {
         width: 160px !important; 
         height: 160px !important; 
+        box-sizing: border-box;
         border: 6px solid black; 
         background-color: #FFFF00;
         display: flex; 
         flex-direction: column; 
         align-items: center; 
         justify-content: center;
+        flex-shrink: 0; /* Impide que los nombres de los lados la compriman */
     }
-    .adel-text { font-weight: bold; font-size: 32px; color: #003399; margin: 0; }
-    .n-mesa { font-weight: bold; font-size: 48px; color: #CC0000; margin: 0; }
+    .adel-text { font-weight: bold; font-size: 32px; color: #003399; margin: 0; line-height: 1.1; }
+    .n-mesa { font-weight: bold; font-size: 48px; color: #CC0000; margin: 0; line-height: 1.1; }
     .jugador { font-weight: bold; font-size: 20px; color: #000; text-align: center; }
     .norte { margin-bottom: 15px; } 
     .sur { margin-top: 15px; }
@@ -45,13 +47,15 @@ st.markdown("""
         display: flex; 
         align-items: center; 
         justify-content: center; 
-        width: 100%; 
+        width: 100%;
+        gap: 10px;
     }
     .este-oeste { 
         writing-mode: vertical-rl; 
         text-orientation: mixed; 
-        padding: 0 35px; 
-        min-width: 40px;
+        padding: 10px 0;
+        min-width: 80px; /* Espacio reservado para que el texto no empuje la mesa */
+        text-align: center;
     }
     .reposo-box {
         background-color: #f0f2f6; border-left: 5px solid #CC0000;
@@ -72,7 +76,7 @@ with st.sidebar:
     idx_actual = opciones.index(st.session_state.seccion_activa) if st.session_state.seccion_activa in opciones else 0
     st.session_state.seccion_activa = st.radio("SECCIÓN:", opciones, index=idx_actual)
 
-# --- 3. SECCIÓN: INSCRIPCIÓN (SU PORTADA SAGRADA - 100% INTACTA) ---
+# --- 3. SECCIÓN: INSCRIPCIÓN (SU HOJA SAGRADA - 100% INTACTA) ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
     
@@ -131,7 +135,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.session_state.estados.pop(n, None)
             st.rerun()
 
-# --- 4. SECCIÓN: MESAS (VISUALIZACIÓN CUADRADA CORRECTA) ---
+# --- 4. SECCIÓN: MESAS (VISUALIZACIÓN CUADRADA SÓLIDA) ---
 elif st.session_state.seccion_activa == "MESAS":
     st.header("Organización de la Sala")
     if st.session_state.historial_completo:
@@ -195,5 +199,4 @@ elif st.session_state.seccion_activa == "RESULTADOS":
 # --- 6. SECCIÓN: RANKING ---
 elif st.session_state.seccion_activa == "RANKING":
     st.header("Ranking General")
-    if st.session_state.asistentes:
-        t = sorted
+    if st.session
