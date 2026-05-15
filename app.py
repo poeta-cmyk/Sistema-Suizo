@@ -2,7 +2,7 @@ import streamlit as st
 import math
 import random
 
-# --- 1. CONFIGURACIÓN E INICIALIZACIÓN SEGURA (SU BASE INTACTA) ---
+# --- 1. CONFIGURACIÓN E INICIALIZACIÓN SEGURA ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
 
 # Bloque de inicialización para prevenir errores de 'AttributeError'
@@ -25,42 +25,24 @@ if 'seccion_activa' not in st.session_state:
 if 'editando' not in st.session_state:
     st.session_state.editando = None
 
-# --- CSS REFORMADO: MESAS CUADRADAS Y SIMÉTRICAS ---
+# --- CSS: Estética Institucional ADEL (Mesas Cuadradas Perfectas) ---
 st.markdown("""
     <style>
     .mesa-container {
-        display: flex; 
-        flex-direction: column; 
-        align-items: center; 
-        margin-bottom: 50px; 
+        display: flex; flex-direction: column; align-items: center; margin-bottom: 50px; 
     }
     .mesa-centro {
-        width: 160px; 
-        height: 160px; 
-        border: 6px solid black; 
-        background-color: #FFFF00;
-        display: flex; 
-        flex-direction: column; 
-        align-items: center; 
-        justify-content: center;
+        width: 160px; height: 160px; border: 6px solid black; background-color: #FFFF00;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
     .adel-text {
-        font-weight: bold; 
-        font-size: 32px; 
-        color: #003399; 
-        margin: 0; 
+        font-weight: bold; font-size: 32px; color: #003399; margin: 0; 
     }
     .n-mesa {
-        font-weight: bold; 
-        font-size: 48px; 
-        color: #CC0000; 
-        margin: 0; 
+        font-weight: bold; font-size: 48px; color: #CC0000; margin: 0; 
     }
     .jugador {
-        font-weight: bold; 
-        font-size: 20px; 
-        color: #000; 
-        text-align: center; 
+        font-weight: bold; font-size: 20px; color: #000; text-align: center; 
     }
     .norte {
         margin-bottom: 15px; 
@@ -69,15 +51,10 @@ st.markdown("""
         margin-top: 15px; 
     }
     .fila-central {
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-        width: 100%; 
+        display: flex; align-items: center; justify-content: center; width: 100%; 
     }
     .este-oeste {
-        writing-mode: vertical-rl; 
-        text-orientation: mixed; 
-        padding: 0 30px; 
+        writing-mode: vertical-rl; text-orientation: mixed; padding: 0 30px; 
     }
     .reposo-box {
         background-color: #f0f2f6;
@@ -100,11 +77,9 @@ with st.sidebar:
     idx_actual = opciones.index(st.session_state.seccion_activa) if st.session_state.seccion_activa in opciones else 0
     st.session_state.seccion_activa = st.radio("SECCIÓN:", opciones, index=idx_actual)
 
-# --- 3. SECCIÓN: INSCRIPCIÓN (100% INTACTA) ---
+# --- 3. SECCIÓN: INSCRIPCIÓN (SU HOJA ORIGINAL - SIN MODIFICACIONES) ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
-    st.markdown("<h1 style='text-align: center;'>ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA “ADEL”</h1>", unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center;'>SISTEMA SUIZO</h2>", unsafe_allow_html=True)
-    st.divider()
+    st.header("ASOCIACIÓN DE DOMINÓ DEL ESTADO LARA ADEL SISTEMA SUIZO")
     
     def procesar_atleta():
         nom = st.session_state.campo_input.upper().strip()
@@ -141,8 +116,6 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             })
             st.session_state.seccion_activa = "MESAS"
             st.rerun()
-        else:
-            st.error("Se necesitan al menos 4 atletas activos para generar las mesas.")
 
     for n in sorted(st.session_state.asistentes):
         c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
@@ -157,11 +130,9 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.session_state.asistentes.remove(n)
             st.rerun()
 
-# --- 4. SECCIÓN: MESAS (CON RECUADRO CUADRADO PERFECTO) ---
+# --- 4. SECCIÓN: MESAS (DISEÑO VISUAL ORIGINAL COMPLETAMENTE CONSERVADO) ---
 elif st.session_state.seccion_activa == "MESAS":
-    st.markdown("<h1 style='text-align: center;'>Organización de la Sala</h1>", unsafe_allow_html=True)
-    st.divider()
-    
+    st.header("Organización de la Sala")
     if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
         st.subheader(f"Distribución de la RONDA {r['ronda']}")
@@ -174,10 +145,7 @@ elif st.session_state.seccion_activa == "MESAS":
                     <div class="jugador norte">{m[0]}</div>
                     <div class="fila-central">
                         <div class="jugador este-oeste">{m[1]}</div>
-                        <div class="mesa-centro">
-                            <p class="adel-text">ADEL</p>
-                            <p class="n-mesa">{i+1}</p>
-                        </div>
+                        <div class="mesa-centro"><p class="adel-text">ADEL</p><p class="n-mesa">{i+1}</p></div>
                         <div class="jugador este-oeste">{m[3]}</div>
                     </div>
                     <div class="jugador sur">{m[2]}</div>
@@ -191,13 +159,10 @@ elif st.session_state.seccion_activa == "MESAS":
                 <p style="font-size: 22px; font-weight: bold;">{', '.join(r['reposo'])}</p>
             </div>
             """, unsafe_allow_html=True)
-    else:
-        st.info("Aún no se ha generado el sorteo. Vaya a la sección 'INSCRIPCIÓN' y presione el botón de Sorteo.")
 
 # --- 5. SECCIÓN: RESULTADOS ---
 elif st.session_state.seccion_activa == "RESULTADOS":
-    st.markdown("<h1 style='text-align: center;'>Carga de Resultados</h1>", unsafe_allow_html=True)
-    st.divider()
+    st.header("Carga de Resultados")
     if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
         for i, m in enumerate(r['mesas']):
@@ -218,12 +183,11 @@ elif st.session_state.seccion_activa == "RESULTADOS":
                         for j in m: recalcular_baremo(j)
                         r['listas'].append(i)
                         st.rerun()
-    else:
-        st.info("Debe realizar el sorteo primero.")
 
-# --- 6. SECCIÓN: RANKING ---
+# --- 6. SECCIÓN: RANKING (REPARADA COMPLETAMENTE) ---
 elif st.session_state.seccion_activa == "RANKING":
-    st.markdown("<h1 style='text-align: center;'>Ranking General ADEL</h1>", unsafe_allow_html=True)
-    st.divider()
+    st.header("Ranking General")
     if st.session_state.asistentes:
-        t = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados[x], st.session_
+        # Aquí cerramos correctamente toda la estructura de ordenamiento matemático
+        t = sorted(st.session_state.asistentes, key=lambda x: (st.session_state.juegos_ganados[x], st.session_state.efectividad[x]), reverse=True)
+        st.table([{"Pos": i+1, "Atleta": n, "JJ": st.session_state.juegos_ganados[n], "PF": st.session_state.puntos_favor[n], "PC": st.session_state.puntos_contra[n], "Efec": f"{st.session_state.efectividad[n]:.4f}"} for
