@@ -2,13 +2,13 @@ import streamlit as st
 import math
 import random
 
-# --- 1. CONFIGURACIÓN ---
+# --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(
     layout="wide", 
     page_title="SISTEMA ADEL"
 )
 
-# Inicialización segura de variables en session_state
+# Inicialización segura de memoria
 if 'asistentes' not in st.session_state:
     st.session_state.asistentes = []
 if 'historial_completo' not in st.session_state:
@@ -31,7 +31,7 @@ if 'seccion_activa' not in st.session_state:
 if 'editando' not in st.session_state:
     st.session_state.editando = None
 
-# --- CSS: MESAS CUADRADAS SIMÉTRICAS EN SALA ---
+# --- ESTILOS CSS PARA LAS MESAS ---
 st.markdown("""
     <style>
     .mesa-container {
@@ -49,7 +49,6 @@ st.markdown("""
         flex-direction: column; 
         align-items: center; 
         justify-content: center;
-        flex-shrink: 0;
     }
     .adel-text { 
         font-weight: bold; 
@@ -98,10 +97,13 @@ st.markdown("""
 def recalcular_baremo(atleta):
     pf = st.session_state.puntos_favor.get(atleta, 0)
     pc = st.session_state.puntos_contra.get(atleta, 0)
-    ratio = max(pf, 1) / max(pc, 1)
-    st.session_state.efectividad[atleta] = math.log10(ratio) + 1
+    v_favor = max(pf, 1)
+    v_contra = max(pc, 1)
+    ratio = v_favor / v_contra
+    log_ratio = math.log10(ratio)
+    st.session_state.efectividad[atleta] = log_ratio + 1
 
-# --- 2. NAVEGACIÓN LATERAL ---
+# --- 2. NAVEGACIÓN ---
 with st.sidebar:
     st.title("🏆 MENÚ ADEL")
     opc = ["INSCRIPCIÓN", "MESAS", "RESULTADOS", "RANKING"]
@@ -124,16 +126,18 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     )
     
     def procesar_atleta():
-        nom = st.session_state.campo_input.upper().strip()
+        raw_input = st.session_state.campo_input
+        nom = raw_input.upper().strip()
         if nom:
             if st.session_state.editando:
                 v = st.session_state.editando.upper().strip()
                 if nom != v and v in st.session_state.asistentes:
-                    i = st.session_state.asistentes.index(v)
-                    st.session_state.asistentes[i] = nom
+                    pos = st.session_state.asistentes.index(v)
+                    st.session_state.asistentes[pos] = nom
                     for reg in reg_keys:
                         if v in st.session_state[reg]:
-                            st.session_state[reg][nom] = st.session_state[reg].pop(v)
+                            info = st.session_state[reg].pop(v)
+                            st.session_state[reg][nom] = info
                 st.session_state.editando = None
             elif nom not in st.session_state.asistentes:
                 st.session_state.asistentes.append(nom)
@@ -153,14 +157,40 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         if st.session_state.estados.get(x, False)
     ]
     
-    st.subheader(
-        f"INSCRITOS: {len(st.session_state.asistentes)} | "
-        f"ACTIVOS: {len(at_act)}"
-    )
+    total_ins = len(st.session_state.asistentes)
+    total_act = len(at_act)
+    st.subheader(f"INSCRITOS: {total_ins} | ACTIVOS: {total_act}")
 
     if st.button("🚀 GENERAR SORTEO DE SALA"):
-        if len(at_act) >= 4:
+        if total_act >= 4:
             random.shuffle(at_act)
-            lim = (len(at_act) // 4) * 4
-            st.session_state.historial_completo.append({
-                'ronda': len(st.
+            lim = (total_act // 4) * 4
+            
+            lista_mesas = []
+            for i in range(0, lim, 4):
+                grupo = at_act[i:i+4]
+                lista_mesas.append(grupo)
+                
+            lista_reposo = at_act[lim:]
+            num_ronda = len(st.session_state.historial_completo) + 1
+            
+            nueva_ronda = {
+                'ronda': num_ronda,
+                'mesas': lista_mesas,
+                'reposo': lista_reposo,
+                'listas': []
+            }
+            
+            st.session_state.historial_completo.append(nueva_ronda)
+            st.session_state.seccion_activa = "MESAS"
+            st.rerun()
+        else:
+            st.error("Mínimo se requieren 4 atletas activos para abrir sala.")
+
+    for n in sorted(st.session_state.asistentes):
+        c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
+        c1.text(f"• {n}")
+        
+        txt_est = "✅" if st.session_state.estados[n] else "❌"
+        if c2.button(txt_est, key=f"st_{n}"):
+            st.session_
