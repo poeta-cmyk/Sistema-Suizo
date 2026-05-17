@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="SISTEMA ADEL"
 )
 
-# Inicialización segura de memoria
+# Memoria interna del torneo
 if 'asistentes' not in st.session_state:
     st.session_state.asistentes = []
 if 'historial_completo' not in st.session_state:
@@ -30,78 +30,6 @@ if 'seccion_activa' not in st.session_state:
     st.session_state.seccion_activa = "INSCRIPCIÓN"
 if 'editando' not in st.session_state:
     st.session_state.editando = None
-
-# --- ESTILOS CSS PARA LAS MESAS ---
-st.markdown("""
-    <style>
-    .mesa-container {
-        display: flex; 
-        flex-direction: column; 
-        align-items: center; 
-        margin-bottom: 40px; 
-    }
-    .mesa-centro {
-        width: 160px !important; 
-        height: 160px !important; 
-        border: 6px solid black; 
-        background-color: #FFFF00;
-        display: flex; 
-        flex-direction: column; 
-        align-items: center; 
-        justify-content: center;
-    }
-    .adel-text { 
-        font-weight: bold; 
-        font-size: 32px; 
-        color: #003399; 
-        margin: 0; 
-    }
-    .n-mesa { 
-        font-weight: bold; 
-        font-size: 48px; 
-        color: #CC0000; 
-        margin: 0; 
-    }
-    .jugador { 
-        font-weight: bold; 
-        font-size: 20px; 
-        color: #000; 
-        text-align: center; 
-    }
-    .norte { margin-bottom: 12px; } 
-    .sur { margin-top: 12px; }
-    .fila-central { 
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-        width: 100%; 
-        gap: 10px;
-    }
-    .este-oeste { 
-        writing-mode: vertical-rl; 
-        text-orientation: mixed; 
-        padding: 5px 0; 
-        min-width: 80px; 
-        text-align: center;
-    }
-    .reposo-box {
-        background-color: #f0f2f6; 
-        border-left: 5px solid #CC0000;
-        padding: 15px; 
-        margin-top: 20px; 
-        border-radius: 5px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-def recalcular_baremo(atleta):
-    pf = st.session_state.puntos_favor.get(atleta, 0)
-    pc = st.session_state.puntos_contra.get(atleta, 0)
-    v_favor = max(pf, 1)
-    v_contra = max(pc, 1)
-    ratio = v_favor / v_contra
-    log_ratio = math.log10(ratio)
-    st.session_state.efectividad[atleta] = log_ratio + 1
 
 # --- 2. NAVEGACIÓN ---
 with st.sidebar:
@@ -126,18 +54,18 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     )
     
     def procesar_atleta():
-        raw_input = st.session_state.campo_input
-        nom = raw_input.upper().strip()
+        raw_in = st.session_state.campo_input
+        nom = raw_in.upper().strip()
         if nom:
             if st.session_state.editando:
                 v = st.session_state.editando.upper().strip()
                 if nom != v and v in st.session_state.asistentes:
                     pos = st.session_state.asistentes.index(v)
                     st.session_state.asistentes[pos] = nom
-                    for reg in reg_keys:
-                        if v in st.session_state[reg]:
-                            info = st.session_state[reg].pop(v)
-                            st.session_state[reg][nom] = info
+                    for rk in reg_keys:
+                        if v in st.session_state[rk]:
+                            info = st.session_state[rk].pop(v)
+                            st.session_state[rk][nom] = info
                 st.session_state.editando = None
             elif nom not in st.session_state.asistentes:
                 st.session_state.asistentes.append(nom)
@@ -185,12 +113,32 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.session_state.seccion_activa = "MESAS"
             st.rerun()
         else:
-            st.error("Mínimo se requieren 4 atletas activos para abrir sala.")
+            st.error("Mínimo se requieren 4 atletas activos.")
 
+    # Lista con los 3 botones recuperados y blindados
     for n in sorted(st.session_state.asistentes):
         c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
         c1.text(f"• {n}")
         
         txt_est = "✅" if st.session_state.estados[n] else "❌"
         if c2.button(txt_est, key=f"st_{n}"):
-            st.session_
+            st.session_state.estados[n] = not st.session_state.estados[n]
+            st.rerun()
+            
+        if c3.button("📝", key=f"ed_{n}"):
+            st.session_state.editando = n
+            st.rerun()
+            
+        if c4.button("🗑️", key=f"del_{n}"):
+            st.session_state.asistentes.remove(n)
+            for rk in reg_keys:
+                st.session_state[rk].pop(n, None)
+            st.rerun()
+
+# --- MODULOS VACÍOS TEMPORALES (EVITAN TRUNCAMIENTO) ---
+elif st.session_state.seccion_activa == "MESAS":
+    st.info("Módulo de MESAS listo para recibir el sorteo.")
+elif st.session_state.seccion_activa == "RESULTADOS":
+    st.info("Módulo de RESULTADOS en espera.")
+elif st.session_state.seccion_activa == "RANKING":
+    st.info("Módulo de RANKING en espera.")
