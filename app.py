@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="SISTEMA ADEL"
 )
 
-# Inicialización segura de variables
+# Inicialización segura de variables en session_state
 if 'asistentes' not in st.session_state:
     st.session_state.asistentes = []
 if 'historial_completo' not in st.session_state:
@@ -31,6 +31,76 @@ if 'seccion_activa' not in st.session_state:
 if 'editando' not in st.session_state:
     st.session_state.editando = None
 
+# --- CSS: MESAS CUADRADAS SIMÉTRICAS EN SALA ---
+st.markdown("""
+    <style>
+    .mesa-container {
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        margin-bottom: 40px; 
+    }
+    .mesa-centro {
+        width: 160px !important; 
+        height: 160px !important; 
+        border: 6px solid black; 
+        background-color: #FFFF00;
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .adel-text { 
+        font-weight: bold; 
+        font-size: 32px; 
+        color: #003399; 
+        margin: 0; 
+    }
+    .n-mesa { 
+        font-weight: bold; 
+        font-size: 48px; 
+        color: #CC0000; 
+        margin: 0; 
+    }
+    .jugador { 
+        font-weight: bold; 
+        font-size: 20px; 
+        color: #000; 
+        text-align: center; 
+    }
+    .norte { margin-bottom: 12px; } 
+    .sur { margin-top: 12px; }
+    .fila-central { 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        width: 100%; 
+        gap: 10px;
+    }
+    .este-oeste { 
+        writing-mode: vertical-rl; 
+        text-orientation: mixed; 
+        padding: 5px 0; 
+        min-width: 80px; 
+        text-align: center;
+    }
+    .reposo-box {
+        background-color: #f0f2f6; 
+        border-left: 5px solid #CC0000;
+        padding: 15px; 
+        margin-top: 20px; 
+        border-radius: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+def recalcular_baremo(atleta):
+    pf = st.session_state.puntos_favor.get(atleta, 0)
+    pc = st.session_state.puntos_contra.get(atleta, 0)
+    ratio = max(pf, 1) / max(pc, 1)
+    st.session_state.efectividad[atleta] = math.log10(ratio) + 1
+
 # --- 2. NAVEGACIÓN LATERAL ---
 with st.sidebar:
     st.title("🏆 MENÚ ADEL")
@@ -46,7 +116,6 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         unsafe_allow_html=True
     )
     
-    # Meta del encuentro ajustable a 100 o 200 puntos
     st.radio(
         "Meta del encuentro:", 
         [100, 200], 
@@ -58,12 +127,13 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         nom = st.session_state.campo_input.upper().strip()
         if nom:
             if st.session_state.editando:
-                v = st.session_state.editando
-                if nom != v:
+                v = st.session_state.editando.upper().strip()
+                if nom != v and v in st.session_state.asistentes:
                     i = st.session_state.asistentes.index(v)
                     st.session_state.asistentes[i] = nom
                     for reg in reg_keys:
-                        st.session_state[reg][nom] = st.session_state[reg].pop(v)
+                        if v in st.session_state[reg]:
+                            st.session_state[reg][nom] = st.session_state[reg].pop(v)
                 st.session_state.editando = None
             elif nom not in st.session_state.asistentes:
                 st.session_state.asistentes.append(nom)
@@ -88,48 +158,9 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         f"ACTIVOS: {len(at_act)}"
     )
 
-    # Botón que genera el sorteo y salta automáticamente a MESAS
     if st.button("🚀 GENERAR SORTEO DE SALA"):
         if len(at_act) >= 4:
             random.shuffle(at_act)
             lim = (len(at_act) // 4) * 4
             st.session_state.historial_completo.append({
-                'ronda': len(st.session_state.historial_completo) + 1,
-                'mesas': [at_act[i:i+4] for i in range(0, lim, 4)],
-                'reposo': at_act[lim:],
-                'listas': []
-            })
-            st.session_state.seccion_activa = "MESAS"
-            st.rerun()
-        else:
-            st.error("Mínimo se requieren 4 atletas activos para abrir sala.")
-
-    # Listado con controles individuales de arbitraje
-    for n in sorted(st.session_state.asistentes):
-        c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
-        c1.text(f"• {n}")
-        
-        # Activar/Desactivar para la ronda (Asistencia)
-        if c2.button("✅" if st.session_state.estados[n] else "❌", key=f"st_{n}"):
-            st.session_state.estados[n] = not st.session_state.estados[n]
-            st.rerun()
-            
-        # Editar nombre por error ortográfico
-        if c3.button("📝", key=f"ed_{n}"):
-            st.session_state.editando = n
-            st.rerun()
-            
-        # Eliminar definitivamente del torneo (Sanción o Retiro)
-        if c4.button("🗑️", key=f"del_{n}"):
-            st.session_state.asistentes.remove(n)
-            for reg in reg_keys:
-                st.session_state[reg].pop(n, None)
-            st.rerun()
-
-# --- Marcadores de posición temporales para no romper el programa ---
-elif st.session_state.seccion_activa == "MESAS":
-    st.info("Estructura de MESAS en pausa hasta consolidar Inscripción.")
-elif st.session_state.seccion_activa == "RESULTADOS":
-    st.info("Estructura de RESULTADOS en pausa hasta consolidar Inscripción.")
-elif st.session_state.seccion_activa == "RANKING":
-    st.info("Estructura de RANKING en pausa hasta consolidar Inscripción.")
+                'ronda': len(st.
