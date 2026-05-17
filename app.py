@@ -117,7 +117,6 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         unsafe_allow_html=True
     )
     
-    # Meta del encuentro (100 / 200 puntos) - Fiel a su pantalla
     st.radio(
         "Meta del encuentro:", 
         [100, 200], 
@@ -222,46 +221,73 @@ elif st.session_state.seccion_activa == "MESAS":
     else:
         st.info("Genere el sorteo en Inscripción.")
 
-# --- 5. SECCIÓN: RESULTADOS (COMPACTO VERTICAL) ---
+# --- 5. SECCIÓN: RESULTADOS (CON GENERADOR DE SIGUIENTE RONDA) ---
 elif st.session_state.seccion_activa == "RESULTADOS":
     st.header("Carga de Puntuaciones")
     if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
-        for i, m in enumerate(r['mesas']):
-            if i not in r['listas']:
-                with st.expander(f"MESA {i+1}", expanded=True):
-                    c1, c2 = st.columns(2)
-                    
-                    lbl_ac = f"A-C ({m[0]}/{m[2]}):"
-                    lbl_bd = f"B-D ({m[1]}/{m[3]}):"
-                    
-                    v1 = c1.number_input(lbl_ac, 0, 250, key=f"v1_{i}")
-                    v2 = c2.number_input(lbl_bd, 0, 250, key=f"v2_{i}")
-                    
-                    if st.button(f"GUARDAR MESA {i+1}", key=f"b_{i}"):
-                        for j in [m[0], m[2]]:
-                            st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + v1
-                            st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + v2
-                            if v1 > v2:
-                                cur_jg = st.session_state.juegos_ganados.get(j, 0)
-                                st.session_state.juegos_ganados[j] = cur_jg + 1
+        
+        # Si ya se cargaron todas las mesas de la ronda actual
+        if len(r['listas']) == len(r['mesas']) and len(r['mesas']) > 0:
+            st.success(f"¡Ronda {r['ronda']} completada con éxito!")
+            
+            if st.button("🔄 GENERAR SIGUIENTE RONDA (SISTEMA SUIZO)"):
+                jg = st.session_state.juegos_ganados
+                ef = st.session_state.efectividad
+                
+                # Clasificación estricta según sus baremos para el emparejamiento
+                ordenados = sorted(
+                    [x for x in st.session_state.asistentes if st.session_state.estados.get(x, False)],
+                    key=lambda x: (jg.get(x, 0), ef.get(x, 1.0)),
+                    reverse=True
+                )
+                
+                lim = (len(ordenados) // 4) * 4
+                st.session_state.historial_completo.append({
+                    'ronda': len(st.session_state.historial_completo) + 1,
+                    'mesas': [ordenados[i:i+4] for i in range(0, lim, 4)],
+                    'reposo': ordenados[lim:],
+                    'listas': []
+                })
+                st.session_state.seccion_activa = "MESAS"
+                st.rerun()
+        else:
+            # Muestra las mesas pendientes por registrar
+            for i, m in enumerate(r['mesas']):
+                if i not in r['listas']:
+                    with st.expander(f"MESA {i+1}", expanded=True):
+                        c1, c2 = st.columns(2)
+                        
+                        lbl_ac = f"A-C ({m[0]}/{m[2]}):"
+                        lbl_bd = f"B-D ({m[1]}/{m[3]}):"
+                        
+                        v1 = c1.number_input(lbl_ac, 0, 250, key=f"v1_{i}")
+                        v2 = c2.number_input(lbl_bd, 0, 250, key=f"v2_{i}")
+                        
+                        if st.button(f"GUARDAR MESA {i+1}", key=f"b_{i}"):
+                            for j in [m[0], m[2]]:
+                                st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + v1
+                                st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + v2
+                                if v1 > v2:
+                                    cur_jg = st.session_state.juegos_ganados.get(j, 0)
+                                    st.session_state.juegos_ganados[j] = cur_jg + 1
+                                    
+                            for j in [m[1], m[3]]:
+                                st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + v2
+                                st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + v1
+                                if v2 > v1:
+                                    cur_jg = st.session_state.juegos_ganados.get(j, 0)
+                                    st.session_state.juegos_ganados[j] = cur_jg + 1
+                                    
+                            for j in m:
+                                recalcular_baremo(j)
                                 
-                        for j in [m[1], m[3]]:
-                            st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + v2
-                            st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + v1
-                            if v2 > v1:
-                                cur_jg = st.session_state.juegos_ganados.get(j, 0)
-                                st.session_state.juegos_ganados[j] = cur_jg + 1
-                                
-                        for j in m:
-                            recalcular_baremo(j)
-                            
-                        r['listas'].append(i)
-                        st.rerun()
+                            r['listas'].append(i)
+                            st.rerun()
     else:
         st.info("No hay rondas activas.")
 
-# --- 6. SECCIÓN: RANKING (ANTI-RECORTE) ---
+# --- 6. SECCIÓN: RANKING (BAREMOS OFICIALES RESTAURADOS) ---
 elif st.session_state.seccion_activa == "RANKING":
     st.header("Ranking General")
     if st.session_state.asistentes:
@@ -287,4 +313,3 @@ elif st.session_state.seccion_activa == "RANKING":
             db.append(fila)
             
         st.table(db)
-    
