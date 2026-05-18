@@ -94,6 +94,13 @@ st.markdown("""
         margin-top: 25px;
         border-radius: 4px;
     }
+    .bye-oficial {
+        background-color: #e8f4fd;
+        border-left: 6px solid #003399;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -158,7 +165,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             lista_mesas = [at_act[i:i+4] for i in range(0, lim, 4)]
             lista_reposo = at_act[lim:]
             
-            # NUEVA MARCA ARBITRAL: El ganador en reposo se lleva Meta Completa vs Mitad de la Meta
+            # EJECUCIÓN ARBITRAL: Marcador de Meta Completa vs Mitad de la Meta para el Bye
             meta_actual = st.session_state.meta_puntos
             mitad_actual = meta_actual // 2
             
@@ -226,6 +233,20 @@ elif st.session_state.seccion_activa == "RESULTADOS":
     st.header("Carga de Puntuaciones de Sala")
     if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
+        
+        # VISUALIZACIÓN EN PANTALLA: Reporte explícito del marcador del jugador en reposo
+        if r.get('reposo'):
+            meta_actual = st.session_state.meta_puntos
+            mitad_actual = meta_actual // 2
+            for jb in r['reposo']:
+                st.markdown(f"""
+                <div class="bye-oficial">
+                    🎯 <b>REPORTE ARBITRAL DE REPOSO (BYE):</b><br>
+                    El atleta <b>{jb}</b> gana esta ronda de forma automática. <br>
+                    Marcador asignado: <b>{meta_actual}</b> puntos a favor / <b>{mitad_actual}</b> puntos en contra. (+1 Juego Ganado)
+                </div>
+                """, unsafe_allow_html=True)
+                
         pendientes = [idx for idx, _ in enumerate(r['mesas']) if idx not in r['listas']]
         if pendientes:
             for i in pendientes:
