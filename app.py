@@ -31,7 +31,7 @@ if 'seccion_activa' not in st.session_state:
 if 'editando' not in st.session_state:
     st.session_state.editando = None
 
-# --- ESTILOS CSS: MESAS NETAMENTE CUADRADAS ---
+# --- ESTILOS CSS: MESAS CUADRADAS CON LATERALES VERTICALES ---
 st.markdown("""
     <style>
     .mesa-container {
@@ -39,8 +39,8 @@ st.markdown("""
         flex-direction: column; 
         align-items: center; 
         justify-content: center;
-        width: 240px !important;
-        height: 240px !important;
+        width: 260px !important;
+        height: 260px !important;
         margin: 20px auto;
     }
     .mesa-centro {
@@ -79,11 +79,11 @@ st.markdown("""
     }
     .norte { 
         width: 100%;
-        margin-bottom: 5px; 
+        margin-bottom: 8px; 
     } 
     .sur { 
         width: 100%;
-        margin-top: 5px; 
+        margin-top: 8px; 
     }
     .fila-central { 
         display: flex; 
@@ -91,11 +91,15 @@ st.markdown("""
         justify-content: center; 
         width: 100%;
         height: 110px;
+        gap: 5px;
     }
     .este-oeste { 
-        width: 65px !important;
-        max-width: 65px !important;
-        padding: 0 4px;
+        width: 40px !important;
+        max-width: 40px !important;
+        writing-mode: vertical-rl !important;
+        text-orientation: mixed !important;
+        transform: rotate(180deg); /* Alinea la lectura de arriba a abajo */
+        padding: 4px 0;
     }
     .reposo-box {
         background-color: #f0f2f6; 
@@ -204,53 +208,5 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.session_state.editando = n
             st.rerun()
             
-        if c4.button("🗑️", key=f"del_{n}"):
-            st.session_state.asistentes.remove(n)
-            for rk in reg_keys:
-                st.session_state[rk].pop(n, None)
-            st.rerun()
-
-# --- 4. SECCIÓN: MESAS ---
-elif st.session_state.seccion_activa == "MESAS":
-    st.header("Organización de la Sala")
-    if st.session_state.historial_completo:
-        r = st.session_state.historial_completo[-1]
-        st.subheader(f"Ronda Actual: {r['ronda']}")
-        
-        cols = st.columns(4)
-        for i, m in enumerate(r['mesas']):
-            num_m = i + 1
-            with cols[i % 4]:
-                st.markdown(f"""
-                <div style='text-align: center;'>
-                    <div class="mesa-container">
-                        <div class="jugador norte">{m[0]}</div>
-                        <div class="fila-central">
-                            <div class="jugador este-oeste">{m[1]}</div>
-                            <div class="mesa-centro">
-                                <p class="adel-text">ADEL</p>
-                                <p class="n-mesa">{num_m}</p>
-                            </div>
-                            <div class="jugador este-oeste">{m[3]}</div>
-                        </div>
-                        <div class="jugador sur">{m[2]}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-        if r.get('reposo'):
-            nombres_reposo = ', '.join(r['reposo'])
-            st.markdown(f"""
-            <div class="reposo-box">
-                <h4>💤 EN REPOSO EN ESTA RONDA:</h4>
-                <p><b>{nombres_reposo}</b></p>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("La sala está vacía. Genere el sorteo en Inscripción.")
-
-# --- MÓDULOS TEMPORALES ---
-elif st.session_state.seccion_activa == "RESULTADOS":
-    st.info("Módulo de RESULTADOS en espera.")
-elif st.session_state.seccion_activa == "RANKING":
-    st.info("Módulo de RANKING en espera.")
+        if c4.button("🗑️", key=f
+                     
