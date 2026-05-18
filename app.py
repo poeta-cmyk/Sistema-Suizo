@@ -31,58 +31,71 @@ if 'seccion_activa' not in st.session_state:
 if 'editando' not in st.session_state:
     st.session_state.editando = None
 
-# --- ESTILOS CSS: MESAS SIMÉTRICAS ---
+# --- ESTILOS CSS: MESAS NETAMENTE CUADRADAS ---
 st.markdown("""
     <style>
     .mesa-container {
-        display: flex; 
+        display: inline-flex; 
         flex-direction: column; 
         align-items: center; 
-        margin-bottom: 40px; 
+        justify-content: center;
+        width: 240px !important;
+        height: 240px !important;
+        margin: 20px auto;
     }
     .mesa-centro {
-        width: 150px !important; 
-        height: 150px !important; 
+        width: 110px !important; 
+        height: 110px !important; 
         border: 5px solid black; 
         background-color: #FFFF00;
         display: flex; 
         flex-direction: column; 
         align-items: center; 
         justify-content: center;
+        flex-shrink: 0;
     }
     .adel-text { 
         font-weight: bold; 
-        font-size: 28px; 
+        font-size: 22px; 
         color: #003399; 
         margin: 0; 
+        line-height: 1;
     }
     .n-mesa { 
         font-weight: bold; 
-        font-size: 44px; 
+        font-size: 38px; 
         color: #CC0000; 
         margin: 0; 
+        line-height: 1;
     }
     .jugador { 
         font-weight: bold; 
-        font-size: 18px; 
+        font-size: 16px; 
         color: #000; 
-        text-align: center; 
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
-    .norte { margin-bottom: 10px; } 
-    .sur { margin-top: 10px; }
+    .norte { 
+        width: 100%;
+        margin-bottom: 5px; 
+    } 
+    .sur { 
+        width: 100%;
+        margin-top: 5px; 
+    }
     .fila-central { 
         display: flex; 
         align-items: center; 
         justify-content: center; 
-        width: 100%; 
-        gap: 12px;
+        width: 100%;
+        height: 110px;
     }
     .este-oeste { 
-        writing-mode: vertical-rl; 
-        text-orientation: mixed; 
-        padding: 5px 0; 
-        min-width: 70px; 
-        text-align: center;
+        width: 65px !important;
+        max-width: 65px !important;
+        padding: 0 4px;
     }
     .reposo-box {
         background-color: #f0f2f6; 
@@ -209,17 +222,19 @@ elif st.session_state.seccion_activa == "MESAS":
             num_m = i + 1
             with cols[i % 4]:
                 st.markdown(f"""
-                <div class="mesa-container">
-                    <div class="jugador norte">{m[0]}</div>
-                    <div class="fila-central">
-                        <div class="jugador este-oeste">{m[1]}</div>
-                        <div class="mesa-centro">
-                            <p class="adel-text">ADEL</p>
-                            <p class="n-mesa">{num_m}</p>
+                <div style='text-align: center;'>
+                    <div class="mesa-container">
+                        <div class="jugador norte">{m[0]}</div>
+                        <div class="fila-central">
+                            <div class="jugador este-oeste">{m[1]}</div>
+                            <div class="mesa-centro">
+                                <p class="adel-text">ADEL</p>
+                                <p class="n-mesa">{num_m}</p>
+                            </div>
+                            <div class="jugador este-oeste">{m[3]}</div>
                         </div>
-                        <div class="jugador este-oeste">{m[3]}</div>
+                        <div class="jugador sur">{m[2]}</div>
                     </div>
-                    <div class="jugador sur">{m[2]}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -234,7 +249,7 @@ elif st.session_state.seccion_activa == "MESAS":
     else:
         st.info("La sala está vacía. Genere el sorteo en Inscripción.")
 
-# --- MÓDULOS TEMPORALES RESTANTES ---
+# --- MÓDULOS TEMPORALES ---
 elif st.session_state.seccion_activa == "RESULTADOS":
     st.info("Módulo de RESULTADOS en espera.")
 elif st.session_state.seccion_activa == "RANKING":
