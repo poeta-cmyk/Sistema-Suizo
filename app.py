@@ -158,6 +158,16 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             lista_mesas = [at_act[i:i+4] for i in range(0, lim, 4)]
             lista_reposo = at_act[lim:]
             
+            # NUEVA MARCA ARBITRAL: El ganador en reposo se lleva Meta Completa vs Mitad de la Meta
+            meta_actual = st.session_state.meta_puntos
+            mitad_actual = meta_actual // 2
+            
+            for j_bye in lista_reposo:
+                st.session_state.juegos_ganados[j_bye] = st.session_state.juegos_ganados.get(j_bye, 0) + 1
+                st.session_state.puntos_favor[j_bye] = st.session_state.puntos_favor.get(j_bye, 0) + meta_actual
+                st.session_state.puntos_contra[j_bye] = st.session_state.puntos_contra.get(j_bye, 0) + mitad_actual
+                recalcular_baremo(j_bye)
+            
             st.session_state.historial_completo.append({
                 'ronda': len(st.session_state.historial_completo) + 1,
                 'mesas': lista_mesas,
