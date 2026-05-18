@@ -94,13 +94,6 @@ st.markdown("""
         margin-top: 25px;
         border-radius: 4px;
     }
-    .bye-oficial {
-        background-color: #e8f4fd;
-        border-left: 6px solid #003399;
-        padding: 15px;
-        margin-bottom: 20px;
-        border-radius: 4px;
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -165,21 +158,12 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             lista_mesas = [at_act[i:i+4] for i in range(0, lim, 4)]
             lista_reposo = at_act[lim:]
             
-            # EJECUCIÓN ARBITRAL: Marcador de Meta Completa vs Mitad de la Meta para el Bye
-            meta_actual = st.session_state.meta_puntos
-            mitad_actual = meta_actual // 2
-            
-            for j_bye in lista_reposo:
-                st.session_state.juegos_ganados[j_bye] = st.session_state.juegos_ganados.get(j_bye, 0) + 1
-                st.session_state.puntos_favor[j_bye] = st.session_state.puntos_favor.get(j_bye, 0) + meta_actual
-                st.session_state.puntos_contra[j_bye] = st.session_state.puntos_contra.get(j_bye, 0) + mitad_actual
-                recalcular_baremo(j_bye)
-            
             st.session_state.historial_completo.append({
                 'ronda': len(st.session_state.historial_completo) + 1,
                 'mesas': lista_mesas,
                 'reposo': lista_reposo,
-                'listas': []
+                'listas': [],
+                'reposo_asentado': False
             })
             st.session_state.seccion_activa = "MESAS"
             st.rerun()
@@ -234,19 +218,35 @@ elif st.session_state.seccion_activa == "RESULTADOS":
     if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
         
-        # VISUALIZACIÓN EN PANTALLA: Reporte explícito del marcador del jugador en reposo
-        if r.get('reposo'):
-            meta_actual = st.session_state.meta_puntos
-            mitad_actual = meta_actual // 2
-            for jb in r['reposo']:
-                st.markdown(f"""
-                <div class="bye-oficial">
-                    🎯 <b>REPORTE ARBITRAL DE REPOSO (BYE):</b><br>
-                    El atleta <b>{jb}</b> gana esta ronda de forma automática. <br>
-                    Marcador asignado: <b>{meta_actual}</b> puntos a favor / <b>{mitad_actual}</b> puntos en contra. (+1 Juego Ganado)
-                </div>
-                """, unsafe_allow_html=True)
+        # --- ESTRUCTURA ESPEJO: EN REPOSO COMO PLANILLA DE CARGA ---
+        if r.get('reposo') and not r.get('reposo_asentado', False):
+            with st.expander("💤 ATLETAS EN REPOSO (BYE)", expanded=True):
+                meta_actual = st.session_state.meta_puntos
+                mitad_actual = meta_actual // 2
                 
+                st.info(f"Marcador preestablecido para esta ronda: {meta_actual} a Favor vs {mitad_actual} en Contra.")
+                
+                # Renderiza de 1 a 3 jugadores de forma dinámica en columnas
+                cols_bye = st.columns(len(r['reposo']))
+                for idx, jb in enumerate(r['reposo']):
+                    with cols_bye[idx]:
+                        st.markdown(f"**Atleta:** {jb}")
+                        st.number_input("Puntos a Favor:", value=meta_actual, disabled=True, key=f"pf_bye_{idx}")
+                        st.number_input("Puntos en Contra:", value=mitad_actual, disabled=True, key=f"pc_bye_{idx}")
+                
+                if st.button("Asentar Puntuación de Reposo", key="btn_asentar_reposo"):
+                    for jb in r['reposo']:
+                        st.session_state.juegos_ganados[jb] = st.session_state.juegos_ganados.get(jb, 0) + 1
+                        st.session_state.puntos_favor[jb] = st.session_state.puntos_favor.get(jb, 0) + meta_actual
+                        st.session_state.puntos_contra[jb] = st.session_state.puntos_contra.get(jb, 0) + mitad_actual
+                        recalcular_baremo(jb)
+                    r['reposo_asentado'] = True
+                    st.success("¡Puntuaciones de reposo guardadas exitosamente!")
+                    st.rerun()
+        elif r.get('reposo') and r.get('reposo_asentado', False):
+            st.success("✅ Los atletas en reposo ya han sido debidamente procesados.")
+                
+        # --- MESAS TRADICIONALES ---
         pendientes = [idx for idx, _ in enumerate(r['mesas']) if idx not in r['listas']]
         if pendientes:
             for i in pendientes:
@@ -271,7 +271,10 @@ elif st.session_state.seccion_activa == "RESULTADOS":
                         r['listas'].append(i)
                         st.rerun()
         else:
-            st.success(f"¡Ronda {r['ronda']} finalizada!")
+            if r.get('reposo_asentado', True):
+                st.success(f"¡Ronda {r['ronda']} finalizada por completo!")
+            else:
+                st.warning("Falta asentar la planilla de los atletas en reposo arriba para cerrar la ronda.")
     else:
         st.info("La sala está vacía. Genere el sorteo en Inscripción.")
 
