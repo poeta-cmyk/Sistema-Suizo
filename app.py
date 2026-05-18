@@ -215,4 +215,3 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         c1.text(f"• {n}")
         
         txt_est = "✅" if st.session_
-    
