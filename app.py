@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="SISTEMA ADEL"
 )
 
-# Memoria interna del torneo
+# Memoria del torneo
 if 'asistentes' not in st.session_state:
     st.session_state.asistentes = []
 if 'historial_completo' not in st.session_state:
@@ -30,6 +30,69 @@ if 'seccion_activa' not in st.session_state:
     st.session_state.seccion_activa = "INSCRIPCIÓN"
 if 'editando' not in st.session_state:
     st.session_state.editando = None
+
+# --- ESTILOS CSS: MESAS SIMÉTRICAS ---
+st.markdown("""
+    <style>
+    .mesa-container {
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        margin-bottom: 40px; 
+    }
+    .mesa-centro {
+        width: 150px !important; 
+        height: 150px !important; 
+        border: 5px solid black; 
+        background-color: #FFFF00;
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center;
+    }
+    .adel-text { 
+        font-weight: bold; 
+        font-size: 28px; 
+        color: #003399; 
+        margin: 0; 
+    }
+    .n-mesa { 
+        font-weight: bold; 
+        font-size: 44px; 
+        color: #CC0000; 
+        margin: 0; 
+    }
+    .jugador { 
+        font-weight: bold; 
+        font-size: 18px; 
+        color: #000; 
+        text-align: center; 
+    }
+    .norte { margin-bottom: 10px; } 
+    .sur { margin-top: 10px; }
+    .fila-central { 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        width: 100%; 
+        gap: 12px;
+    }
+    .este-oeste { 
+        writing-mode: vertical-rl; 
+        text-orientation: mixed; 
+        padding: 5px 0; 
+        min-width: 70px; 
+        text-align: center;
+    }
+    .reposo-box {
+        background-color: #f0f2f6; 
+        border-left: 6px solid #CC0000;
+        padding: 15px; 
+        margin-top: 25px; 
+        border-radius: 4px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- 2. NAVEGACIÓN ---
 with st.sidebar:
@@ -115,7 +178,6 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         else:
             st.error("Mínimo se requieren 4 atletas activos.")
 
-    # Lista con los 3 botones recuperados y blindados
     for n in sorted(st.session_state.asistentes):
         c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
         c1.text(f"• {n}")
@@ -135,9 +197,44 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
                 st.session_state[rk].pop(n, None)
             st.rerun()
 
-# --- MODULOS VACÍOS TEMPORALES (EVITAN TRUNCAMIENTO) ---
+# --- 4. SECCIÓN: MESAS ---
 elif st.session_state.seccion_activa == "MESAS":
-    st.info("Módulo de MESAS listo para recibir el sorteo.")
+    st.header("Organización de la Sala")
+    if st.session_state.historial_completo:
+        r = st.session_state.historial_completo[-1]
+        st.subheader(f"Ronda Actual: {r['ronda']}")
+        
+        cols = st.columns(4)
+        for i, m in enumerate(r['mesas']):
+            num_m = i + 1
+            with cols[i % 4]:
+                st.markdown(f"""
+                <div class="mesa-container">
+                    <div class="jugador norte">{m[0]}</div>
+                    <div class="fila-central">
+                        <div class="jugador este-oeste">{m[1]}</div>
+                        <div class="mesa-centro">
+                            <p class="adel-text">ADEL</p>
+                            <p class="n-mesa">{num_m}</p>
+                        </div>
+                        <div class="jugador este-oeste">{m[3]}</div>
+                    </div>
+                    <div class="jugador sur">{m[2]}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+        if r.get('reposo'):
+            nombres_reposo = ', '.join(r['reposo'])
+            st.markdown(f"""
+            <div class="reposo-box">
+                <h4>💤 EN REPOSO EN ESTA RONDA:</h4>
+                <p><b>{nombres_reposo}</b></p>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("La sala está vacía. Genere el sorteo en Inscripción.")
+
+# --- MÓDULOS TEMPORALES RESTANTES ---
 elif st.session_state.seccion_activa == "RESULTADOS":
     st.info("Módulo de RESULTADOS en espera.")
 elif st.session_state.seccion_activa == "RANKING":
