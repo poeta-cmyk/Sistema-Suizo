@@ -1,5 +1,5 @@
 import streamlit as st
-import math
+import pandas as pd
 import random
 
 # --- 1. CONFIGURACIÓN INICIAL ---
@@ -12,10 +12,9 @@ if 'historial_completo' not in st.session_state:
 if 'meta_puntos' not in st.session_state:
     st.session_state.meta_puntos = 200
 
-reg_keys = ['estados', 'juegos_ganados', 'puntos_favor', 'puntos_contra', 'efectividad']
-for k in reg_keys:
-    if k not in st.session_state:
-        st.session_state[k] = {}
+# Estructura de almacenamiento histórico por atleta
+if 'historial_atletas' not in st.session_state:
+    st.session_state.historial_atletas = {}
 
 if 'seccion_activa' not in st.session_state:
     st.session_state.seccion_activa = "INSCRIPCIÓN"
@@ -67,11 +66,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def recalcular_baremo(atleta):
-    pf = st.session_state.puntos_favor.get(atleta, 0)
-    pc = st.session_state.puntos_contra.get(atleta, 0)
-    st.session_state.efectividad[atleta] = math.log10(max(pf, 1) / max(pc, 1)) + 1
-
 # --- 3. NAVEGACIÓN ---
 with st.sidebar:
     st.title("🏆 MENÚ ADEL")
@@ -83,7 +77,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.markdown("<h2 style='text-align:center;'>SISTEMA SUIZO ADEL</h2>", unsafe_allow_html=True)
     st.session_state.meta_puntos = st.radio("Meta del encuentro:", [100, 200], index=0 if st.session_state.meta_puntos == 100 else 1, horizontal=True)
     
-    def procesar_atleta():
+    def registrar_atleta():
         raw_in = st.session_state.campo_input
         nom = raw_in.upper().strip()
         if nom:
@@ -92,26 +86,22 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
                 if nom != v and v in st.session_state.asistentes:
                     pos = st.session_state.asistentes.index(v)
                     st.session_state.asistentes[pos] = nom
-                    for rk in reg_keys:
-                        if v in st.session_state[rk]: st.session_state[rk][nom] = st.session_state[rk].pop(v)
+                    if v in st.session_state.historial_atletas:
+                        st.session_state.historial_atletas[nom] = st.session_state.historial_atletas.pop(v)
                 st.session_state.editando = None
             elif nom not in st.session_state.asistentes:
                 st.session_state.asistentes.append(nom)
-                st.session_state.estados[nom] = True
-                st.session_state.juegos_ganados[nom] = 0
-                st.session_state.puntos_favor[nom] = 0
-                st.session_state.puntos_contra[nom] = 0
-                st.session_state.efectividad[nom] = 1.0
+                st.session_state.historial_atletas[nom] = []
         st.session_state.campo_input = ""
 
     ed = st.session_state.editando
-    st.text_input(f"Corrigiendo a: {ed}" if ed else "Nombre del Atleta + ENTER:", key="campo_input", on_change=procesar_atleta)
+    st.text_input(f"Corrigiendo a: {ed}" if ed else "Nombre del Atleta + ENTER:", key="campo_input", on_change=registrar_atleta)
     
-    at_act = [x for x in st.session_state.asistentes if st.session_state.estados.get(x, False)]
-    st.subheader(f"INSCRITOS: {len(st.session_state.asistentes)} | ACTIVOS: {len(at_act)}")
+    st.subheader(f"TOTAL ATLETAS INSCRITOS: {len(st.session_state.asistentes)}")
 
     if st.button("🚀 GENERAR SORTEO DE SALA"):
-        if len(at_act) >= 4:
+        if len(st.session_state.asistentes) >= 4:
+            at_act = list(st.session_state.asistentes)
             random.shuffle(at_act)
             lim = (len(at_act) // 4) * 4
             st.session_state.historial_completo.append({
@@ -127,14 +117,12 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
             st.error("Mínimo se requieren 4 atletas activos.")
 
     for n in sorted(st.session_state.asistentes):
-        c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
+        c1, c2, c3 = st.columns([4, 1, 1])
         c1.text(f"• {n}")
-        if c2.button("✅" if st.session_state.estados[n] else "❌", key=f"st_{n}"):
-            st.session_state.estados[n] = not st.session_state.estados[n]; st.rerun()
-        if c3.button("📝", key=f"ed_{n}"): st.session_state.editando = n; st.rerun()
-        if c4.button("🗑️", key=f"del_{n}"):
+        if c2.button("📝", key=f"ed_{n}"): st.session_state.editando = n; st.rerun()
+        if c3.button("🗑️", key=f"del_{n}"):
             st.session_state.asistentes.remove(n)
-            for rk in reg_keys: st.session_state[rk].pop(n, None)
+            st.session_state.historial_atletas.pop(n, None)
             st.rerun()
 
 # --- 5. SECCIÓN: MESAS ---
@@ -160,7 +148,7 @@ elif st.session_state.seccion_activa == "MESAS":
                 </div>
                 """, unsafe_allow_html=True)
         if r.get('reposo'):
-            st.markdown(f'<div class="reposo-box"><h4>💤 EN REPOSO EN ESTA RONDA:</h4><p><b>{", ".join(r["reposo"])}</b></p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="reposo-box"><h4>💤 EN REPOSO EN ESTA RONDA (BYE):</h4><p><b>{", ".join(r["reposo"])}</b></p></div>', unsafe_allow_html=True)
     else: st.info("La sala está vacía. Genere el sorteo en Inscripción.")
 
 # --- 6. SECCIÓN: RESULTADOS ---
@@ -171,7 +159,7 @@ elif st.session_state.seccion_activa == "RESULTADOS":
         meta_global = st.session_state.meta_puntos
         mitad_global = meta_global // 2
         
-        # --- PLANILLA DE REPOSO ---
+        # --- PLANILLA DE REPOSO (BYE) ---
         if r.get('reposo') and not r.get('reposo_asentado', False):
             with st.expander("💤 ATLETAS EN REPOSO (BYE)", expanded=True):
                 st.info(f"Marcador oficial de reposo: {meta_global} a Favor vs {mitad_global} en Contra.")
@@ -183,10 +171,12 @@ elif st.session_state.seccion_activa == "RESULTADOS":
                         st.number_input("Puntos en Contra:", value=mitad_global, disabled=True, key=f"pc_b_{idx}")
                 if st.button("Asentar Puntuación de Reposo", key="btn_asentar_reposo"):
                     for jb in r['reposo']:
-                        st.session_state.juegos_ganados[jb] = st.session_state.juegos_ganados.get(jb, 0) + 1
-                        st.session_state.puntos_favor[jb] = st.session_state.puntos_favor.get(jb, 0) + meta_global
-                        st.session_state.puntos_contra[jb] = st.session_state.puntos_contra.get(jb, 0) + mitad_global
-                        recalcular_baremo(jb)
+                        st.session_state.historial_atletas[jb].append({
+                            'ronda': r['ronda'], 'jg': 1, 'jj': 1,
+                            'pf': meta_global, 'pc': mitad_global,
+                            'efec': meta_global - mitad_global, # Puntos netos positivos por defecto
+                            'sancionado': False
+                        })
                     r['reposo_asentado'] = True
                     st.rerun()
         
@@ -197,10 +187,9 @@ elif st.session_state.seccion_activa == "RESULTADOS":
                 m = r['mesas'][i]
                 with st.expander(f"MESA {i+1}", expanded=True):
                     c1, c2 = st.columns(2)
-                    v1 = c1.number_input(f"Puntos A-C ({m[0]} / {m[2]}):", 0, 250, key=f"v1_{i}")
-                    v2 = c2.number_input(f"Puntos B-D ({m[1]} / {m[3]}):", 0, 250, key=f"v2_{i}")
+                    v1 = c1.number_input(f"Puntos Reales A-C ({m[0]} / {m[2]}):", 0, 300, key=f"v1_{i}")
+                    v2 = c2.number_input(f"Puntos Reales B-D ({m[1]} / {m[3]}):", 0, 300, key=f"v2_{i}")
                     
-                    # ⚖️ PANEL DE CONTROL ARBITRAL (SANCIONES)
                     st.markdown('<div class="panel-arbitral"><b>⚖️ PANEL DE ARBITRAJE DE LA MESA</b></div>', unsafe_allow_html=True)
                     opciones_atletas = ["NINGUNO"] + m
                     infractor = st.selectbox(f"Seleccionar Atleta Infractor (Mesa {i+1}):", opciones_atletas, key=f"infractor_{i}")
@@ -212,39 +201,58 @@ elif st.session_state.seccion_activa == "RESULTADOS":
                     if st.button(f"Guardar Resultados Mesa {i+1}", key=f"b_{i}"):
                         sancion_info = DICCIONARIO_SANCIONES[sancion_sel]
                         
-                        # Definición base de puntos reales de la mesa física
+                        # Datos Base Físicos de la mesa
                         datos_mesa = {
-                            m[0]: {"pf": v1, "pc": v2, "socio": m[2], "rivales": [m[1], m[3]]},
-                            m[2]: {"pf": v1, "pc": v2, "socio": m[0], "rivales": [m[1], m[3]]},
-                            m[1]: {"pf": v2, "pc": v1, "socio": m[3], "rivales": [m[0], m[2]]},
-                            m[3]: {"pf": v2, "pc": v1, "socio": m[1], "rivales": [m[0], m[2]]}
+                            m[0]: {"pf_real": v1, "pc_real": v2, "pf_ind": v1, "pc_ind": v2, "g_real": v1 > v2, "sanc": False},
+                            m[2]: {"pf_real": v1, "pc_real": v2, "pf_ind": v1, "pc_ind": v2, "g_real": v1 > v2, "sanc": False},
+                            m[1]: {"pf_real": v2, "pc_real": v1, "pf_ind": v2, "pc_ind": v1, "g_real": v2 > v1, "sanc": False},
+                            m[3]: {"pf_real": v2, "pc_real": v1, "pf_ind": v2, "pc_ind": v1, "g_real": v2 > v1, "sanc": False}
                         }
                         
-                        # Aplicar penalización algorítmica si corresponde
+                        # Aplicar sanción individual en la planilla interna
                         if infractor != "NINGUNO" and sancion_info["tipo"] != "NADA":
+                            datos_mesa[infractor]["sanc"] = True
                             if sancion_info["tipo"] == "PORCENTAJE":
                                 descuento = int(meta_global * sancion_info["valor"])
-                                datos_mesa[infractor]["pf"] = max(0, datos_mesa[infractor]["pf"] - descuento)
+                                datos_mesa[infractor]["pf_ind"] = max(0, datos_mesa[infractor]["pf_real"] - descuento)
                             elif sancion_info["tipo"] == "EXPULSION":
-                                datos_mesa[infractor]["pf"] = 0
-                                datos_mesa[infractor]["pc"] = meta_global
+                                datos_mesa[infractor]["pf_ind"] = 0
+                                datos_mesa[infractor]["pc_ind"] = meta_global
                             elif sancion_info["tipo"] == "CONCLUYE_PARTIDO":
-                                datos_mesa[infractor]["pf"] = meta_global
-                                datos_mesa[infractor]["pc"] = meta_global
+                                datos_mesa[infractor]["pf_ind"] = meta_global
+                                datos_mesa[infractor]["pc_ind"] = meta_global
 
-                        # Guardado definitivo e individual en la memoria general
+                        # Cálculo Individual de Baremos por Atleta
                         for j in m:
-                            pf_final = datos_mesa[j]["pf"]
-                            pc_final = datos_mesa[j]["pc"]
+                            pf_f = datos_mesa[j]["pf_ind"]
+                            pc_f = datos_mesa[j]["pc_ind"]
+                            pc_rival_real = datos_mesa[j]["pc_real"] # Puntos que hicieron los rivales físicamente
                             
-                            st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + pf_final
-                            st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + pc_final
+                            # VEREDICTO DINÁMICO DE JG: Comparar sus puntos individuales con los reales del rival
+                            ganador_final = pf_f > pc_rival_real
+                            jg_atleta = 1 if ganador_final else 0
                             
-                            # VEREDICTO DE JG: El sistema evalúa individualmente tras el hachazo
-                            if pf_final > pc_final:
-                                st.session_state.juegos_ganados[j] = st.session_state.juegos_ganados.get(j, 0) + 1
-                            
-                            recalcular_baremo(j)
+                            # CÁLCULO DE LA VARIABLE EFEC (Segundo Baremo)
+                            if datos_mesa[j]["sanc"]:
+                                if ganador_final:
+                                    # Sancionado que sigue ganando: misma EFEC que su compañero limpio
+                                    efec_atleta = meta_global - pc_rival_real
+                                else:
+                                    # Sancionado perdedor: Sus puntos con descuento menos la meta
+                                    efec_atleta = pf_f - meta_global
+                            else:
+                                # Jugadores limpios normales
+                                if datos_mesa[j]["g_real"]:
+                                    efec_atleta = meta_global - pc_rival_real
+                                else:
+                                    efec_atleta = -(meta_global - pf_f)
+
+                            # Almacenamiento en el historial del atleta
+                            st.session_state.historial_atletas[j].append({
+                                'ronda': r['ronda'], 'jg': jg_atleta, 'jj': 1,
+                                'pf': pf_f, 'pc': pc_f, 'efec': efec_atleta,
+                                'sancionado': datos_mesa[j]["sanc"]
+                            })
                             
                         r['listas'].append(i)
                         st.rerun()
@@ -253,5 +261,44 @@ elif st.session_state.seccion_activa == "RESULTADOS":
             else: st.warning("Falta asentar la planilla de los atletas en reposo arriba para cerrar la ronda.")
     else: st.info("La sala está vacía. Genere el sorteo en Inscripción.")
 
+# --- 7. SECCIÓN: RANKING ---
 elif st.session_state.seccion_activa == "RANKING":
-    st.info("Módulo de RANKING en espera.")
+    st.markdown("<h2 style='text-align:center;'>🏆 TABLA DE POSICIONES OFICIAL (RANKING)</h2>", unsafe_allow_html=True)
+    
+    datos_ranking = []
+    
+    for atleta in st.session_state.asistentes:
+        partidas = st.session_state.historial_atletas.get(atleta, [])
+        
+        tot_jg = sum(p['jg'] for p in partidas)
+        tot_jj = sum(p['jj'] for p in partidas)
+        tot_pf = sum(p['pf'] for p in partidas)
+        tot_pc = sum(p['pc'] for p in partidas)
+        tot_efec = sum(p['efec'] for p in partidas)
+        
+        # 📊 1. Primer Baremo: IEP
+        iep = int((tot_jg / tot_jj) * 1000) if tot_jj > 0 else 0
+        
+        # 🧮 3. Tercer Baremo: DIF
+        dif = tot_pf - tot_pc
+        
+        datos_ranking.append({
+            "ATLETA": atleta,
+            "JJ": tot_jj,
+            "JG": tot_jg,
+            "IEP": iep,
+            "EFEC": tot_efec,
+            "DIF": dif,
+            "PF": tot_pf,
+            "PC": tot_pc
+        })
+    
+    if datos_ranking:
+        df = pd.DataFrame(datos_ranking)
+        # ORDENAMIENTO JERÁRQUICO ALGORÍTMICO: 1° IEP -> 2° EFEC -> 3° DIF
+        df = df.sort_values(by=["IEP", "EFEC", "DIF"], ascending=[False, False, False]).reset_index(drop=True)
+        df.index = df.index + 1 # Que comience en la posición 1
+        
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("No hay datos cargados en el torneo actualmente.")
