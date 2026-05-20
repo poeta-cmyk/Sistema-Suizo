@@ -5,7 +5,6 @@ import random
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(layout="wide", page_title="SISTEMA ADEL")
 
-# Memoria interna del torneo
 if 'asistentes' not in st.session_state:
     st.session_state.asistentes = []
 if 'historial_completo' not in st.session_state:
@@ -23,77 +22,48 @@ if 'seccion_activa' not in st.session_state:
 if 'editando' not in st.session_state:
     st.session_state.editando = None
 
-# --- 2. ESTILOS CSS ORIGINALES ---
+# Base de datos del Reglamento ADEL
+DICCIONARIO_SANCIONES = {
+    "Ninguna": {"tipo": "NADA", "valor": 0, "txt": "Sin infracción"},
+    "Art. 67 - Retraso a la mesa": {"tipo": "CONCLUYE_PARTIDO", "valor": 1.0, "txt": "TR - Concluye el partido (Meta/Meta)"},
+    "Art. 68 - Tiempo de jugadas 5/20/60": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "TA - Concluye la mano (–20%)"},
+    "Art. 69 - Fumar, comer o tomar": {"tipo": "EXPULSION", "valor": 0.0, "txt": "TR - Concluye el partido (0/Meta)"},
+    "Art. 70 - Hablar o uso de dispositivo": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "TA - Concluye la mano (–20%)"},
+    "Art. 71 - Señas": {"tipo": "EXPULSION", "valor": 0.0, "txt": "TR - Concluye el partido (0/Meta)"},
+    "Art. 72 - Quejas, recriminar conductas": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "TA - Concluye la mano (–20%)"},
+    "Art. 73 - Hablar o alzar la voz": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "TA - Concluye la mano (–20%)"},
+    "Art. 74 - Inicio de la partida": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "TA - Concluye la mano (–20%)"},
+    "Art. 75 - Caída de las fichas": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "TA - Decide pareja contraria (–20%)"},
+    "Art. 76 - Jugada adelantada": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "Decide pareja contraria (–20%)"},
+    "Art. 77 - No entra la ficha tocada": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "Decide pareja contraria (–20%)"},
+    "Art. 78 - Cabra": {"tipo": "PORCENTAJE", "valor": 0.40, "txt": "TA - Decide pareja contraria (–40%)"},
+    "Art. 78 - Cabra (evitando cierre)": {"tipo": "EXPULSION", "valor": 0.0, "txt": "TR - Concluye el partido (0/Meta)"},
+    "Art. 79 - Error al trancar": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "Decide pareja contraria (–20%)"},
+    "Art. 80 - Notificación errónea pase": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "TA - Concluye la mano (–20%)"},
+    "Art. 81 - Pasada con fichas": {"tipo": "PORCENTAJE", "valor": 0.40, "txt": "TA - Decide pareja contraria (–40%)"},
+    "Art. 81 - Pase (evitando cierre)": {"tipo": "EXPULSION", "valor": 0.0, "txt": "TR - Concluye el partido (0/Meta)"},
+    "Art. 82 - Voltear fichas antes": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "Decide pareja contraria (–20%)"},
+    "Art. 83 - Romper esqueleto del juego": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "AV - (–20%)"},
+    "Art. 84 - Alterar planilla intencional": {"tipo": "EXPULSION", "valor": 0.0, "txt": "TN - (0/Meta)"},
+    "Art. 85/86 - Levantarse antes de la mesa": {"tipo": "EXPULSION", "valor": 0.0, "txt": "TR - (0/Meta)"},
+    "Art. 90/91 - Agresión verbal/física": {"tipo": "EXPULSION", "valor": 0.0, "txt": "TN - (0/Meta)"},
+    "Art. 92 - Desacatar al árbitro": {"tipo": "EXPULSION", "valor": 0.0, "txt": "TN - (0/Meta)"},
+    "Art. 97 - Permanecer sala terminado": {"tipo": "PORCENTAJE", "valor": 0.20, "txt": "TA - (–20%)"}
+}
+
+# --- 2. ESTILOS CSS ---
 st.markdown("""
     <style>
-    .mesa-container {
-        display: inline-flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        width: 260px!important;
-        height: 260px!important;
-        margin: 20px auto;
-    }
-    .mesa-centro {
-        width: 110px!important;
-        height: 110px!important;
-        border: 5px solid black;
-        background-color: #FFFF00;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .adel-text {
-        font-weight: bold;
-        font-size: 22px;
-        color: #003399;
-        margin: 0;
-        line-height: 1;
-    }
-    .n-mesa {
-        font-weight: bold;
-        font-size: 38px;
-        color: #CC0000;
-        margin: 0;
-        line-height: 1;
-    }
-    .jugador {
-        font-weight: bold;
-        font-size: 16px;
-        color: #000;
-        text-align: center;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .norte { width: 100%; margin-bottom: 8px; }
-    .sur { width: 100%; margin-top: 8px; }
-    .fila-central {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        height: 110px;
-        gap: 5px;
-    }
-    .este-oeste {
-        width: 40px!important;
-        max-width: 40px!important;
-        writing-mode: vertical-rl!important;
-        text-orientation: mixed!important;
-        transform: rotate(180deg);
-        padding: 4px 0;
-    }
-    .reposo-box {
-        background-color: #f0f2f6;
-        border-left: 6px solid #CC0000;
-        padding: 15px;
-        margin-top: 25px;
-        border-radius: 4px;
-    }
+    .mesa-container { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 260px!important; height: 260px!important; margin: 20px auto; }
+    .mesa-centro { width: 110px!important; height: 110px!important; border: 5px solid black; background-color: #FFFF00; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }
+    .adel-text { font-weight: bold; font-size: 22px; color: #003399; margin: 0; line-height: 1; }
+    .n-mesa { font-weight: bold; font-size: 38px; color: #CC0000; margin: 0; line-height: 1; }
+    .jugador { font-weight: bold; font-size: 16px; color: #000; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .norte { width: 100%; margin-bottom: 8px; } .sur { width: 100%; margin-top: 8px; }
+    .fila-central { display: flex; align-items: center; justify-content: center; width: 100%; height: 110px; gap: 5px; }
+    .este-oeste { width: 40px!important; max-width: 40px!important; writing-mode: vertical-rl!important; text-orientation: mixed!important; transform: rotate(180deg); padding: 4px 0; }
+    .reposo-box { background-color: #f0f2f6; border-left: 6px solid #CC0000; padding: 15px; margin-top: 25px; border-radius: 4px; }
+    .panel-arbitral { background-color: #fff8e1; border: 1px dashed #ffa000; padding: 15px; border-radius: 4px; margin-top: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -111,13 +81,7 @@ with st.sidebar:
 # --- 4. SECCIÓN: INSCRIPCIÓN ---
 if st.session_state.seccion_activa == "INSCRIPCIÓN":
     st.markdown("<h2 style='text-align:center;'>SISTEMA SUIZO ADEL</h2>", unsafe_allow_html=True)
-    
-    st.session_state.meta_puntos = st.radio(
-        "Meta del encuentro:", 
-        [100, 200], 
-        index=0 if st.session_state.meta_puntos == 100 else 1, 
-        horizontal=True
-    )
+    st.session_state.meta_puntos = st.radio("Meta del encuentro:", [100, 200], index=0 if st.session_state.meta_puntos == 100 else 1, horizontal=True)
     
     def procesar_atleta():
         raw_in = st.session_state.campo_input
@@ -129,8 +93,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
                     pos = st.session_state.asistentes.index(v)
                     st.session_state.asistentes[pos] = nom
                     for rk in reg_keys:
-                        if v in st.session_state[rk]:
-                            st.session_state[rk][nom] = st.session_state[rk].pop(v)
+                        if v in st.session_state[rk]: st.session_state[rk][nom] = st.session_state[rk].pop(v)
                 st.session_state.editando = None
             elif nom not in st.session_state.asistentes:
                 st.session_state.asistentes.append(nom)
@@ -142,11 +105,7 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         st.session_state.campo_input = ""
 
     ed = st.session_state.editando
-    st.text_input(
-        f"Corrigiendo a: {ed}" if ed else "Nombre del Atleta + ENTER:", 
-        key="campo_input", 
-        on_change=procesar_atleta
-    )
+    st.text_input(f"Corrigiendo a: {ed}" if ed else "Nombre del Atleta + ENTER:", key="campo_input", on_change=procesar_atleta)
     
     at_act = [x for x in st.session_state.asistentes if st.session_state.estados.get(x, False)]
     st.subheader(f"INSCRITOS: {len(st.session_state.asistentes)} | ACTIVOS: {len(at_act)}")
@@ -155,13 +114,10 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         if len(at_act) >= 4:
             random.shuffle(at_act)
             lim = (len(at_act) // 4) * 4
-            lista_mesas = [at_act[i:i+4] for i in range(0, lim, 4)]
-            lista_reposo = at_act[lim:]
-            
             st.session_state.historial_completo.append({
                 'ronda': len(st.session_state.historial_completo) + 1,
-                'mesas': lista_mesas,
-                'reposo': lista_reposo,
+                'mesas': [at_act[i:i+4] for i in range(0, lim, 4)],
+                'reposo': at_act[lim:],
                 'listas': [],
                 'reposo_asentado': False
             })
@@ -174,15 +130,11 @@ if st.session_state.seccion_activa == "INSCRIPCIÓN":
         c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
         c1.text(f"• {n}")
         if c2.button("✅" if st.session_state.estados[n] else "❌", key=f"st_{n}"):
-            st.session_state.estados[n] = not st.session_state.estados[n]
-            st.rerun()
-        if c3.button("📝", key=f"ed_{n}"):
-            st.session_state.editando = n
-            st.rerun()
+            st.session_state.estados[n] = not st.session_state.estados[n]; st.rerun()
+        if c3.button("📝", key=f"ed_{n}"): st.session_state.editando = n; st.rerun()
         if c4.button("🗑️", key=f"del_{n}"):
             st.session_state.asistentes.remove(n)
-            for rk in reg_keys:
-                st.session_state[rk].pop(n, None)
+            for rk in reg_keys: st.session_state[rk].pop(n, None)
             st.rerun()
 
 # --- 5. SECCIÓN: MESAS ---
@@ -209,43 +161,35 @@ elif st.session_state.seccion_activa == "MESAS":
                 """, unsafe_allow_html=True)
         if r.get('reposo'):
             st.markdown(f'<div class="reposo-box"><h4>💤 EN REPOSO EN ESTA RONDA:</h4><p><b>{", ".join(r["reposo"])}</b></p></div>', unsafe_allow_html=True)
-    else:
-        st.info("La sala está vacía. Genere el sorteo en Inscripción.")
+    else: st.info("La sala está vacía. Genere el sorteo en Inscripción.")
 
 # --- 6. SECCIÓN: RESULTADOS ---
 elif st.session_state.seccion_activa == "RESULTADOS":
     st.header("Carga de Puntuaciones de Sala")
     if st.session_state.historial_completo:
         r = st.session_state.historial_completo[-1]
+        meta_global = st.session_state.meta_puntos
+        mitad_global = meta_global // 2
         
-        # --- ESTRUCTURA ESPEJO: EN REPOSO COMO PLANILLA DE CARGA ---
+        # --- PLANILLA DE REPOSO ---
         if r.get('reposo') and not r.get('reposo_asentado', False):
             with st.expander("💤 ATLETAS EN REPOSO (BYE)", expanded=True):
-                meta_actual = st.session_state.meta_puntos
-                mitad_actual = meta_actual // 2
-                
-                st.info(f"Marcador preestablecido para esta ronda: {meta_actual} a Favor vs {mitad_actual} en Contra.")
-                
-                # Renderiza de 1 a 3 jugadores de forma dinámica en columnas
+                st.info(f"Marcador oficial de reposo: {meta_global} a Favor vs {mitad_global} en Contra.")
                 cols_bye = st.columns(len(r['reposo']))
                 for idx, jb in enumerate(r['reposo']):
                     with cols_bye[idx]:
                         st.markdown(f"**Atleta:** {jb}")
-                        st.number_input("Puntos a Favor:", value=meta_actual, disabled=True, key=f"pf_bye_{idx}")
-                        st.number_input("Puntos en Contra:", value=mitad_actual, disabled=True, key=f"pc_bye_{idx}")
-                
+                        st.number_input("Puntos a Favor:", value=meta_global, disabled=True, key=f"pf_b_{idx}")
+                        st.number_input("Puntos en Contra:", value=mitad_global, disabled=True, key=f"pc_b_{idx}")
                 if st.button("Asentar Puntuación de Reposo", key="btn_asentar_reposo"):
                     for jb in r['reposo']:
                         st.session_state.juegos_ganados[jb] = st.session_state.juegos_ganados.get(jb, 0) + 1
-                        st.session_state.puntos_favor[jb] = st.session_state.puntos_favor.get(jb, 0) + meta_actual
-                        st.session_state.puntos_contra[jb] = st.session_state.puntos_contra.get(jb, 0) + mitad_actual
+                        st.session_state.puntos_favor[jb] = st.session_state.puntos_favor.get(jb, 0) + meta_global
+                        st.session_state.puntos_contra[jb] = st.session_state.puntos_contra.get(jb, 0) + mitad_global
                         recalcular_baremo(jb)
                     r['reposo_asentado'] = True
-                    st.success("¡Puntuaciones de reposo guardadas exitosamente!")
                     st.rerun()
-        elif r.get('reposo') and r.get('reposo_asentado', False):
-            st.success("✅ Los atletas en reposo ya han sido debidamente procesados.")
-                
+        
         # --- MESAS TRADICIONALES ---
         pendientes = [idx for idx, _ in enumerate(r['mesas']) if idx not in r['listas']]
         if pendientes:
@@ -255,29 +199,59 @@ elif st.session_state.seccion_activa == "RESULTADOS":
                     c1, c2 = st.columns(2)
                     v1 = c1.number_input(f"Puntos A-C ({m[0]} / {m[2]}):", 0, 250, key=f"v1_{i}")
                     v2 = c2.number_input(f"Puntos B-D ({m[1]} / {m[3]}):", 0, 250, key=f"v2_{i}")
+                    
+                    # ⚖️ PANEL DE CONTROL ARBITRAL (SANCIONES)
+                    st.markdown('<div class="panel-arbitral"><b>⚖️ PANEL DE ARBITRAJE DE LA MESA</b></div>', unsafe_allow_html=True)
+                    opciones_atletas = ["NINGUNO"] + m
+                    infractor = st.selectbox(f"Seleccionar Atleta Infractor (Mesa {i+1}):", opciones_atletas, key=f"infractor_{i}")
+                    
+                    sancion_sel = "Ninguna"
+                    if infractor != "NINGUNO":
+                        sancion_sel = st.selectbox(f"Infracción Cometida por {infractor}:", list(DICCIONARIO_SANCIONES.keys()), key=f"sancion_{i}")
+                    
                     if st.button(f"Guardar Resultados Mesa {i+1}", key=f"b_{i}"):
-                        for j in [m[0], m[2]]:
-                            st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + v1
-                            st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + v2
-                            if v1 > v2:
-                                st.session_state.juegos_ganados[j] = st.session_state.juegos_ganados.get(j, 0) + 1
-                        for j in [m[1], m[3]]:
-                            st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + v2
-                            st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + v1
-                            if v2 > v1:
-                                st.session_state.juegos_ganados[j] = st.session_state.juegos_ganados.get(j, 0) + 1
+                        sancion_info = DICCIONARIO_SANCIONES[sancion_sel]
+                        
+                        # Definición base de puntos reales de la mesa física
+                        datos_mesa = {
+                            m[0]: {"pf": v1, "pc": v2, "socio": m[2], "rivales": [m[1], m[3]]},
+                            m[2]: {"pf": v1, "pc": v2, "socio": m[0], "rivales": [m[1], m[3]]},
+                            m[1]: {"pf": v2, "pc": v1, "socio": m[3], "rivales": [m[0], m[2]]},
+                            m[3]: {"pf": v2, "pc": v1, "socio": m[1], "rivales": [m[0], m[2]]}
+                        }
+                        
+                        # Aplicar penalización algorítmica si corresponde
+                        if infractor != "NINGUNO" and sancion_info["tipo"] != "NADA":
+                            if sancion_info["tipo"] == "PORCENTAJE":
+                                descuento = int(meta_global * sancion_info["valor"])
+                                datos_mesa[infractor]["pf"] = max(0, datos_mesa[infractor]["pf"] - descuento)
+                            elif sancion_info["tipo"] == "EXPULSION":
+                                datos_mesa[infractor]["pf"] = 0
+                                datos_mesa[infractor]["pc"] = meta_global
+                            elif sancion_info["tipo"] == "CONCLUYE_PARTIDO":
+                                datos_mesa[infractor]["pf"] = meta_global
+                                datos_mesa[infractor]["pc"] = meta_global
+
+                        # Guardado definitivo e individual en la memoria general
                         for j in m:
+                            pf_final = datos_mesa[j]["pf"]
+                            pc_final = datos_mesa[j]["pc"]
+                            
+                            st.session_state.puntos_favor[j] = st.session_state.puntos_favor.get(j, 0) + pf_final
+                            st.session_state.puntos_contra[j] = st.session_state.puntos_contra.get(j, 0) + pc_final
+                            
+                            # VEREDICTO DE JG: El sistema evalúa individualmente tras el hachazo
+                            if pf_final > pc_final:
+                                st.session_state.juegos_ganados[j] = st.session_state.juegos_ganados.get(j, 0) + 1
+                            
                             recalcular_baremo(j)
+                            
                         r['listas'].append(i)
                         st.rerun()
         else:
-            if r.get('reposo_asentado', True):
-                st.success(f"¡Ronda {r['ronda']} finalizada por completo!")
-            else:
-                st.warning("Falta asentar la planilla de los atletas en reposo arriba para cerrar la ronda.")
-    else:
-        st.info("La sala está vacía. Genere el sorteo en Inscripción.")
+            if r.get('reposo_asentado', True): st.success(f"¡Ronda {r['ronda']} finalizada por completo!")
+            else: st.warning("Falta asentar la planilla de los atletas en reposo arriba para cerrar la ronda.")
+    else: st.info("La sala está vacía. Genere el sorteo en Inscripción.")
 
-# --- 7. SECCIÓN: RANKING ---
 elif st.session_state.seccion_activa == "RANKING":
     st.info("Módulo de RANKING en espera.")
